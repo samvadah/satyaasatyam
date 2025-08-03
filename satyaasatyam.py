@@ -29,6 +29,7 @@ TRANSLATIONS = {
         "welcome_intro": "सुस्वागतम्। इयं चतुर्णां क्रीडकानां सत्यासत्यपरीक्षा क्रीडा॥",
         "welcome_rules": "अत्र एको ब्राह्मणः सर्वसत्यः क्षत्रियः एकानृतः वैश्यः एकसत्यः शूद्रश्च सर्वानृतः भविष्यति। सर्वेषां वर्णानां सम्यगनुमानमेव तव लक्ष्यम्॥",
         "create_game_button": "✨ नवीनं क्रीडासत्रं रचया", "require_names": "नामकरणम् अनिवार्यम्",
+        "share_and_wait_instruction": "इदं सूत्रम् अन्येभ्यः क्रीडकेभ्यः प्रसारय। क्रीडार्थं चतुर्णां क्रीडकानाम् आवश्यकता वर्तते॥",
         "enter_name_label": "तव नामाङ्कनं कुरु", "error_name_required": "कृपया स्वनाम प्रविशतु। नामकरणम् अनिवार्यमस्ति।",
         "join_as": "इति प्रविश", "player": "क्रीडकः", "you_joined_as": "त्वम् अस्मिन् नाम्ना सम्मिलितोऽसि।",
         "waiting_for_players": "अन्येषाम् आगमनं प्रतीक्षस्व। {count} चतुर्षु सम्मिलिताः।",
@@ -44,7 +45,7 @@ TRANSLATIONS = {
         "scoring": "🏆 अङ्कगणना।", "no_correct_guesses": "केनचिदपि सम्यक् नानुमितम्। अस्मिन् चक्रे कोऽपि अङ्को न दीयते।",
         "correct_guessers_info": "{count} जनैः सम्यगनुमितम्। तेषु प्रत्येकं **{points} अङ्कान्** प्राप्नोति।",
         "leaderboard": "अङ्कतालिका।", "points": "अङ्काः", "start_new_round": "🔄 नवीनं चक्रमारभस्व",
-        "share_the_game": "🔗 क्रीडां प्रसारय", "player_link_info": "क्रीडकसङ्केतः", "viewer_link_info": "दर्शक-सङ्केतः",
+        "share_the_game": "🔗 क्रीडां प्रसारय", "player_link_info": "क्रीडकसङ्केतः", "viewer_link_info": "दर्शक सङ्केतः",
         "game_full_warning": "इयं क्रीडा पूर्णा। त्वं दर्शकत्वेन सम्मिलितोऽसि।", "game_room_not_found": "क्रीडासत्रं न लब्धम्।",
         "go_to_main_menu": "मुख्यपृष्ठं गच्छ", "viewer": "दर्शकः", "guesser_a_viewer": "एको दर्शकः",
         "you_are_host": "त्वम् आतिथेयः असि।", "host_transfer_notice": "आतिथेयः क्रीडातः निर्गतः। त्वम् इदानीं नूतनः आतिथेयः।",
@@ -57,6 +58,7 @@ TRANSLATIONS = {
         "welcome_intro": "Welcome. This is a four-player game to test truth and untruth.",
         "welcome_rules": "Here, one will be the all-truth Brahmin, one the one-lie Kshatriya, one the one-truth Vaishya, and one the all-lie Shudra. Your goal is to correctly guess everyone's Varna.",
         "create_game_button": "✨ Create a New Game Room", "require_names": "Require names",
+        "share_and_wait_instruction": "Share this link with other players. You need four players to start the game.",
         "enter_name_label": "Enter your name", "error_name_required": "Please enter your name. It is required for this game.",
         "join_as": "Join as", "player": "Player", "you_joined_as": "You have joined.",
         "waiting_for_players": "Waiting for other players... {count} of four have joined.",
@@ -98,7 +100,6 @@ def get_initial_state(game_id, settings):
     return {"id": game_id, "phase": "joining", "players": {}, "host_id": get_user_session()['user_id'],
             "player_user_ids": {}, "true_varna_map": {f"player_{i+1}": varna for i, varna in enumerate(shuffled_varnas)},
             "guesses": {}, "scores": {}, "settings": settings}
-## --- FIX: Robust session identification ---
 def get_user_session():
     if "user_id" not in st.session_state: st.session_state.user_id = str(uuid.uuid4())
     return {"user_id": st.session_state.user_id, "player_id": st.session_state.get("player_id")}
@@ -134,14 +135,12 @@ def display_player_list(state, session):
         player_name = state['players'][p_id]['name']
         is_you = p_id == session.get('player_id')
         is_host = state.get('player_user_ids', {}).get(p_id) == state.get('host_id')
-        
         you_marker = f" ॥ {t('you')} ॥" if is_you else ""
         host_marker = "👑 " if is_host else ""
-        st.markdown(f"- {host_marker}{player_name}{you_marker}")
+        st.markdown(f"• {host_marker}{player_name}{you_marker}")
 def display_game_controls(state, session):
     is_host = state.get('host_id') == session['user_id']
     if is_host: st.success(t('you_are_host'))
-
     if st.button(t('quit_game'), use_container_width=True):
         if st.checkbox(t('confirm_quit_game'), key=f"quit_{session['user_id']}"):
             player_id_to_remove = session['player_id']
@@ -150,83 +149,74 @@ def display_game_controls(state, session):
                 if player_id_to_remove in state['player_user_ids']: del state['player_user_ids'][player_id_to_remove]
                 if is_host: # Host transfer logic
                     if state['player_user_ids']:
-                        next_host_pid = sorted(state['player_user_ids'].keys())[0]
-                        state['host_id'] = state['player_user_ids'][next_host_pid]
+                        next_host_pid = sorted(state['player_user_ids'].keys())[0]; state['host_id'] = state['player_user_ids'][next_host_pid]
                     else: state['phase'] = 'aborted'
                 if len(state['players']) < 4 and state['phase'] != 'joining': state['phase'] = 'aborted'
                 save_game_state(state)
-                st.session_state.player_id = None
-                st.rerun()
+                st.session_state.player_id = None; st.rerun()
     if is_host:
         if st.button(t('end_game'), use_container_width=True, type="primary"):
-            if st.checkbox(t('confirm_end_game'), key=f"end_{session['user_id']}"):
-                state['phase'] = 'aborted'; save_game_state(state); st.rerun()
-## --- NEW: Share Button Component ---
-def create_share_button(label, text, title, url):
-    escaped_text = text.replace("'", "\\'")
-    escaped_title = title.replace("'", "\\'")
-    js_code = f"""
-        <button id='share-btn' style='width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ccc; background-color: #f0f2f6;'>
-            {label}
-        </button>
+            if st.checkbox(t('confirm_end_game'), key=f"end_{session['user_id']}"): state['phase'] = 'aborted'; save_game_state(state); st.rerun()
+def one_click_copy_button(element_id, button_text, button_key):
+    js = f"""
         <script>
-        document.getElementById('share-btn').onclick = function() {{
-            if (navigator.share) {{
-                navigator.share({{
-                    title: '{escaped_title}',
-                    text: '{escaped_text}',
-                    url: '{url}'
-                }}).catch(console.error);
-            }} else {{
-                navigator.clipboard.writeText('{url}').then(function() {{
-                    alert("{t('link_copied')}");
-                }}, function(err) {{
-                    console.error('Could not copy text: ', err);
-                }});
+        function copyToClipboard(elementId, button) {{
+            const input = document.getElementById(elementId);
+            navigator.clipboard.writeText(input.value).then(() => {{
+                button.innerText = "{t('link_copied')}";
+                setTimeout(() => {{ button.innerText = "{button_text}"; }}, 2000);
+            }});
+        }}
+        const button{button_key} = document.getElementById('{button_key}');
+        if (button{button_key}) {{
+            button{button_key}.onclick = function() {{
+                copyToClipboard('{element_id}', button{button_key});
             }}
-        }};
+        }}
         </script>
+        <button id="{button_key}" style='width: 100%;'>{button_text}</button>
     """
-    components.html(js_code, height=40)
+    return components.html(js, height=38)
 def display_game_links(state):
-    with st.expander(t('share_the_game')):
-        player_link = f"{BASE_URL}?id={state['id']}"
-        viewer_link = f"{player_link}&role=viewer"
-        
-        col1, col2 = st.columns([3, 1])
-        with col1: st.text_input(t('player_link_info'), player_link, key="pl_link", disabled=True)
-        with col2: create_share_button(t('share_button'), "Join my Satyasatyam game!", "Satyasatyam Game", player_link)
-        
-        col3, col4 = st.columns([3, 1])
-        with col3: st.text_input(t('viewer_link_info'), viewer_link, key="v_link", disabled=True)
-        with col4: create_share_button(t('share_button'), "Watch my Satyasatyam game!", "Satyasatyam Game", viewer_link)
+    with st.expander(t('share_the_game'), expanded=True):
+        player_link = f"{BASE_URL}?id={state['id']}"; viewer_link = f"{player_link}&role=viewer"
+        st.caption(t('player_link_info')); col1, col2 = st.columns([4, 1])
+        with col1: st.text_input("Player Link", value=player_link, key="pl_link_input", label_visibility="collapsed")
+        with col2: one_click_copy_button("pl_link_input", "📋", "copy_player_btn")
+        st.markdown(f'<a href="https://api.whatsapp.com/send?text=Join my Satyasatyam game: {player_link}" target="_blank" rel="noopener noreferrer">Share on WhatsApp</a>', unsafe_allow_html=True)
+        st.markdown("---")
+        st.caption(t('viewer_link_info')); col3, col4 = st.columns([4, 1])
+        with col3: st.text_input("Viewer Link", value=viewer_link, key="v_link_input", label_visibility="collapsed")
+        with col4: one_click_copy_button("v_link_input", "📋", "copy_viewer_btn")
+        st.markdown(f'<a href="https://api.whatsapp.com/send?text=Watch this Satyasatyam game: {viewer_link}" target="_blank" rel="noopener noreferrer">Share on WhatsApp</a>', unsafe_allow_html=True)
 def display_main_menu():
     st.title(t('game_title'))
-    st.write(t('welcome_intro'))
-    st.write(t('welcome_rules'))
+    st.write(t('welcome_intro')); st.write(t('welcome_rules'))
     require_names = st.checkbox(t('require_names'), value=True)
     if st.button(t('create_game_button')):
+        session = get_user_session()
         state = get_initial_state(str(uuid.uuid4().hex[:6].upper()), {"require_names": require_names})
         st.session_state.player_id = "player_1"
-        state['player_user_ids']['player_1'] = get_user_session()['user_id']
-        save_game_state(state)
-        st.query_params["id"] = state['id']
-        st.rerun()
+        state['player_user_ids']['player_1'] = session['user_id']
+        save_game_state(state); st.query_params["id"] = state['id']; st.rerun()
 
 # --- GAME PHASE DISPLAYS ---
 def display_joining_phase(state, session):
+    # This block now handles players joining and displays the correct info
+    st.success(f"{t('you_joined_as')} **{state['players'][session['player_id']]['name']}**")
+    if len(state['players']) < 4: st.info(t('share_and_wait_instruction'))
+def display_name_entry(state, session):
+    # This block handles the initial name entry
     player_id, user_id = session['player_id'], session['user_id']
     if not player_id: # A returning user or new user needs a slot
         if user_id in state['player_user_ids'].values(): re_establish_session(state, user_id)
         else:
-            available_slots = [f"player_{i+1}" for i in range(4) if f"player_{i+1}" not in state['players']]
+            available_slots = [f"player_{i+1}" for i in range(4) if f"player_{i+1}" not in state['player_user_ids']]
             if not available_slots: st.warning(t('game_full_warning')); return
             st.session_state.player_id = available_slots[0]
-            state['player_user_ids'][st.session_state.player_id] = user_id
-            save_game_state(state)
-        player_id = st.session_state.player_id # Update local var
-    if player_id in state['players']: st.rerun() # Player has already submitted name, move to next phase
-
+            state['player_user_ids'][st.session_state.player_id] = user_id; save_game_state(state)
+        player_id = st.session_state.player_id
+    
     player_num_str = to_devanagari(player_id.split('_')[-1]) if st.session_state.lang == 'sa' else player_id.split('_')[-1]
     default_name = f"{t('player')} {player_num_str}"
     player_name = st.text_input(t('enter_name_label'), placeholder=default_name)
@@ -247,15 +237,12 @@ def display_writing_phase(state, session):
         progress_text = t('players_submitted', count=submitted_count, total=total_players_str)
         st.progress(submitted_count / 4, text=progress_text)
         return
-    # Rest of writing phase UI... (same as before)
     my_varna_key = state['true_varna_map'][session['player_id']]
     varna_details = VARNA_DETAILS[my_varna_key][st.session_state.lang]
     st.header(f"{t('you_are')} **{varna_details['name']}**")
     st.warning(f"**{t('your_rule')}**")
     with st.form("sentence_form"):
-        s1 = st.text_area(t('sentence_1'), key="s1", height=80)
-        s2 = st.text_area(t('sentence_2'), key="s2", height=80)
-        s3 = st.text_area(t('sentence_3'), key="s3", height=80)
+        s1 = st.text_area(t('sentence_1'), key="s1", height=80); s2 = st.text_area(t('sentence_2'), key="s2", height=80); s3 = st.text_area(t('sentence_3'), key="s3", height=80)
         if st.form_submit_button(t('submit_sentences')):
             if not all([s1, s2, s3]): st.error(t('error_all_sentences'))
             else:
@@ -268,115 +255,84 @@ def display_match_the_following_guessing(state, session):
     for p_id, p_data in sorted(state['players'].items()):
         sent_nums = [to_devanagari(str(n)) for n in [1, 2, 3]] if st.session_state.lang == 'sa' else ['1', '2', '3']
         with st.expander(t('player_sentences', name=p_data['name']), expanded=True):
-            st.markdown(f"{sent_nums[0]}. *{p_data['sentences'][0]}*\n\n{sent_nums[1]}. *{p_data['sentences'][1]}*\n\n{sent_nums[2]}. *{p_data['sentences'][2]}*")
+            st.markdown(f"{sent_nums[0]}। *{p_data['sentences'][0]}*\n\n{sent_nums[1]}। *{p_data['sentences'][1]}*\n\n{sent_nums[2]}। *{p_data['sentences'][2]}*")
     st.subheader(t('your_guesses'))
     player_ids = sorted(state['players'].keys())
     varna_options = [VARNA_DETAILS[key][st.session_state.lang]['name'] for key in VARNA_KEYS]
     if 'guesses' not in st.session_state: st.session_state.guesses = {p_id: None for p_id in player_ids}
     
     cols = st.columns(len(player_ids))
+    current_guesses = {p_id: st.session_state.get(f"guess_{p_id}") for p_id in player_ids}
     for i, p_id in enumerate(player_ids):
         with cols[i]:
             player_name = state['players'][p_id]['name']
-            used_varnas = [v for v in st.session_state.guesses.values() if v is not None and v != st.session_state.guesses[p_id]]
+            used_varnas = [v for v in current_guesses.values() if v is not None and v != current_guesses[p_id]]
             available_varnas = [v for v in varna_options if v not in used_varnas]
-            st.selectbox(f"**{player_name}**", available_varnas, index=None, placeholder="---", key=f"guess_{p_id}", on_change=lambda: setattr(st.session_state, 'guesses', {pid: st.session_state[f'guess_{pid}'] for pid in player_ids}))
+            st.selectbox(f"**{player_name}**", available_varnas, index=None, placeholder="---", key=f"guess_{p_id}")
 
     if st.button(t('submit_guess'), use_container_width=True):
-        current_guesses = {pid: st.session_state.get(f"guess_{pid}") for pid in player_ids}
-        if any(v is None for v in current_guesses.values()): st.error(t('error_all_guesses'))
+        final_guesses = {pid: st.session_state.get(f"guess_{pid}") for pid in player_ids}
+        if any(v is None for v in final_guesses.values()): st.error(t('error_all_guesses'))
         else:
             varna_name_to_key_map = {VARNA_DETAILS[key][st.session_state.lang]['name']: key for key in VARNA_KEYS}
-            state['guesses'][session['user_id']] = {p_id: varna_name_to_key_map[v_name] for p_id, v_name in current_guesses.items()}
-            del st.session_state.guesses
-            save_game_state(state); st.rerun()
-
-# --- MAIN LOGIC ---
-def main():
-    st.set_page_config(page_title="सत्यासत्यम्", layout="centered", initial_sidebar_state="expanded")
-    
-    # Establish session ID first, always
-    session = get_user_session()
-
-    game_id = st.query_params.get("id")
-    state = load_game_state(game_id)
-    
-    # Immediately try to re-establish session if a game state exists
-    if state:
-        re_establish_session(state, session['user_id'])
-        session = get_user_session() # Re-fetch session state after potential update
-        if state['phase'] != 'joining':
-            st_autorefresh(interval=2000, limit=None, key="game_refresher")
-
-    display_sidebar(state, session)
-
-    if not state:
-        display_main_menu()
-        if game_id: st.error(t('game_room_not_found'))
-        return
-
-    # --- Main Page Routing ---
-    if state['phase'] == 'aborted':
-        st.info(t('game_ended_by_host'))
-        if st.button(t('go_to_main_menu')): st.query_params.clear(); st.rerun()
-    elif state['phase'] == 'joining':
-        if session['player_id'] not in state['players']: display_joining_phase(state, session)
-        else: st.rerun() # If player has already joined, auto-refresh will move them to next phase
-    elif state['phase'] == 'writing': display_writing_phase(state, session)
-    elif state['phase'] == 'guessing': display_match_the_following_guessing(state, session)
-    elif state['phase'] == 'results': display_results_phase(state) # Assumes display_results_phase is defined
-    
-    display_game_links(state)
-
-if __name__ == "__main__":
-    main()
-
-# Make sure this function is defined, it was omitted in previous snippets for brevity but is required.
+            state['guesses'][session['user_id']] = {p_id: varna_name_to_key_map[v_name] for p_id, v_name in final_guesses.items()}
+            del st.session_state.guesses; save_game_state(state); st.rerun()
 def display_results_phase(state):
-    st.header(t('results_are_in'))
-    st.subheader(t('true_varnas'))
-    truth = state['true_varna_map']
-    cols = st.columns(len(state['players']))
+    st.header(t('results_are_in')); st.subheader(t('true_varnas'))
+    truth = state['true_varna_map']; cols = st.columns(len(state['players']))
     for i, (p_id, p_data) in enumerate(sorted(state['players'].items())):
-        with cols[i]:
-            true_varna_name = VARNA_DETAILS[truth[p_id]][st.session_state.lang]['name']
-            st.metric(label=t('player_was_a', name=p_data['name']), value=true_varna_name)
-
-    st.subheader(t('scoring'))
-    correct_guessers = []
+        with cols[i]: st.metric(label=t('player_was_a', name=p_data['name']), value=VARNA_DETAILS[truth[p_id]][st.session_state.lang]['name'])
+    st.subheader(t('scoring')); correct_guessers = []
     for user_id, guess in state['guesses'].items():
         if guess == truth:
-            guesser_name = None
-            for p_id, p_data in state['players'].items():
-                if state.get('player_user_ids', {}).get(p_id) == user_id:
-                    guesser_name = p_data['name']
-                    break
-            if not guesser_name: guesser_name = f"{t('guesser_a_viewer')} ({user_id[:6]})"
+            guesser_name = next((p['name'] for p_id, p in state['players'].items() if state.get('player_user_ids', {}).get(p_id) == user_id), f"{t('guesser_a_viewer')} ॥ {user_id[:6]} ॥")
             correct_guessers.append(guesser_name)
-
     if not correct_guessers: st.warning(t('no_correct_guesses'))
     else:
         points_per_winner = POINTS_POOL // len(correct_guessers)
         st.success(t('correct_guessers_info', count=len(correct_guessers), points=points_per_winner))
-        for name in correct_guessers:
-            st.write(f"🎉 **{name}**")
-            state['scores'][name] = state['scores'].get(name, 0) + points_per_winner
-                
+        for name in correct_guessers: st.write(f"🎉 **{name}**"); state['scores'][name] = state['scores'].get(name, 0) + points_per_winner
     save_game_state(state)
-
     st.subheader(t('leaderboard'))
     if state.get('scores'):
-        sorted_scores = sorted(state['scores'].items(), key=lambda item: item[1], reverse=True)
-        for name, score in sorted_scores:
+        for name, score in sorted(state['scores'].items(), key=lambda item: item[1], reverse=True):
             points_str = to_devanagari(str(score)) if st.session_state.lang == 'sa' else str(score)
             st.markdown(f"**{name}**। {points_str} {t('points')}")
-
     if st.button(t('start_new_round')):
         new_state = get_initial_state(state['id'], state['settings'])
-        new_state['players'] = {p_id: {"name": p_data["name"], "sentences": None, "submitted": False} for p_id, p_data in state['players'].items()}
-        new_state['player_user_ids'] = state['player_user_ids']
-        new_state['phase'] = 'writing'
-        new_state['scores'] = state.get('scores', {})
-        new_state['host_id'] = state.get('host_id')
-        save_game_state(new_state)
-        st.rerun()
+        new_state.update({'players': {p_id: {"name": p_data["name"], "sentences": None, "submitted": False} for p_id, p_data in state['players'].items()},
+                          'player_user_ids': state['player_user_ids'], 'phase': 'writing', 'scores': state.get('scores', {}), 'host_id': state.get('host_id')})
+        save_game_state(new_state); st.rerun()
+
+# --- MAIN LOGIC ---
+def main():
+    st.set_page_config(page_title="सत्यासत्यम्", layout="centered", initial_sidebar_state="expanded")
+    session = get_user_session()
+    game_id = st.query_params.get("id")
+    state = load_game_state(game_id)
+    if state:
+        re_establish_session(state, session['user_id'])
+        session = get_user_session() # Re-fetch session state after potential update
+        if state['phase'] != 'joining': st_autorefresh(interval=2000, limit=None, key="game_refresher")
+    
+    display_sidebar(state, session)
+    if not state:
+        display_main_menu();
+        if game_id: st.error(t('game_room_not_found'))
+        return
+    
+    if state['phase'] == 'aborted':
+        st.info(t('game_ended_by_host'))
+        if st.button(t('go_to_main_menu')): st.query_params.clear(); st.rerun()
+    elif state['phase'] == 'joining':
+        if session['player_id'] not in state['players']: display_name_entry(state, session)
+        else: display_joining_phase(state, session)
+    elif session['player_id'] in state['players']: # Player is fully in the game
+        if state['phase'] == 'writing': display_writing_phase(state, session)
+        elif state['phase'] == 'guessing': display_match_the_following_guessing(state, session)
+        elif state['phase'] == 'results': display_results_phase(state)
+    
+    if state and state['phase'] != 'aborted': display_game_links(state)
+
+if __name__ == "__main__":
+    main()
