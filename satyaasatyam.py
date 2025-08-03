@@ -3,374 +3,361 @@ import random
 import json
 import os
 import uuid
+from streamlit_autorefresh import st_autorefresh
 
-# --- 1. CONFIGURATION & CONSTANTS ---
+# --- CONFIGURATION & CONSTANTS ---
 GAME_DIR = "gamerooms"
 POINTS_POOL = 12
-BASE_URL = "https://satyasatyam.streamlit.app"
+BASE_URL = "https://satyaasatyam.streamlit.app"
+VARNA_KEYS = ["Brahmin", "Kshatriya", "Vaishya", "Shudra"]
 
-# --- 2. LANGUAGE & CONTENT ---
+# --- LANGUAGE & CONTENT (TRANSLATIONS) ---
 def to_devanagari(num_str):
     return "".join("०१२३४५६७८९"[int(d)] for d in str(num_str))
 
-# Varna details remain the same
 VARNA_DETAILS = {
     "Brahmin": {"sa": {"name": "ब्राह्मणः", "rule": "स्वविषये त्रीणि सत्यानि वाक्यानि लिख।"}, "en": {"name": "Brahmin", "rule": "Write three true sentences about yourself."}},
     "Kshatriya": {"sa": {"name": "क्षत्रियः", "rule": "स्वविषये एकम् असत्यं द्वे च सत्ये वाक्यानि लिख।"}, "en": {"name": "Kshatriya", "rule": "Write one false sentence and two true ones."}},
     "Vaishya": {"sa": {"name": "वैश्यः", "rule": "स्वविषये एकं सत्यं द्वे च असत्ये वाक्यानि लिख।"}, "en": {"name": "Vaishya", "rule": "Write one true sentence and two false ones."}},
-    "Shudra": {"sa": {"name": "शूद्रः", "rule": "स्वविषये त्रीणि असत्यानि वाक्यानि लिख।"}, "en": {"name": "Shudra", "rule": "Write three false sentences about yourself."}},
+    "Shudra": {"sa": {"name": "शूद्रः", "rule": "स्वविषये त्रीणि असत्यानि वाक्यानि लिख।"}, "en": {"name": "Shudra", "rule": "Write three false sentences about yourself."}}
 }
-VARNA_KEYS = list(VARNA_DETAILS.keys())
 
-# Complete and corrected translations for both languages
 TRANSLATIONS = {
     "sa": {
-        "lang_select": "भाषा",
-        "game_title": "सत्यासत्यम्",
+        "game_title": "सत्यासत्यम्", "language_select": "भाषा",
         "welcome_intro": "सुस्वागतम्। इयं चतुर्णां क्रीडकानां सत्यासत्यपरीक्षा क्रीडा॥",
-        "create_game_button": "✨ नवीनं क्रीडासत्रं रचया",
-        "require_names": "नामकरणम् अनिवार्यम्",
-        "enter_name_label": "तव नामाङ्कनं कुरु",
-        "error_name_required": "अनिवार्यत्वात् कृपया स्वनाम प्रविशतु।",
-        "error_name_taken": "इदं नाम पूर्वमेव स्वीकृतम्। अन्यत् चिनु।",
-        "join_as": "इति प्रविश",
-        "player": "क्रीडकः",
-        "you_joined_as": "त्वं {name} नाम्ना सम्मिलितोऽसि।",
-        "waiting_for_players": "अन्येषाम् आगमनं प्रतीक्षस्व",
-        "players_in_room": "अस्मिन् सत्रे क्रीडकाः",
-        "you_are": "त्वमसि",
-        "your_rule": "तव नियमः",
-        "write_three_sentences": "अधः स्ववाक्यानि लिख।",
-        "sentence_1": "प्रथमं वाक्यम्", "sentence_2": "द्वितीयं वाक्यम्", "sentence_3": "तृतीयं वाक्यम्",
-        "submit_sentences": "वाक्यानि समर्पय",
-        "error_all_sentences": "कृपया त्रीणि वाक्यानि लिख।",
-        "submission_success": "✅ तव वाक्यानि समर्पितानि। इतरेषां प्रतीक्षा कुरु।",
-        "progress_text": "{count} चतुर्षु क्रीडकैः समर्पितम्॥",
-        "guessing_time": "🤔 अनुमानपर्व",
-        "guessing_instructions": "प्रत्येकस्य क्रीडकस्य वर्णं योजय।",
-        "player_sentences": "{name} इत्यस्य वाक्यानि",
-        "your_guesses": "तव अनुमानानि",
-        "submit_guess": "अनुमानं निश्चिनु",
-        "guess_submitted": "✅ तवानुमानं समर्पितम्। परिणामान् प्रतीक्षस्व।",
-        "reveal_results": "सर्वेषां परिणामान् प्रकाशय",
-        "results_are_in": "✨ परिणामाः आगताः ✨",
-        "true_varnas": "यथार्थवर्णाः",
-        "scoring": "🏆 अङ्कगणना",
-        "no_correct_guesses": "केनचिदपि सम्यक् नानुमितम्। अस्मिन् चक्रे कोऽपि अङ्को न दीयते।",
+        "welcome_rules": "अत्र एको ब्राह्मणः सर्वसत्यः क्षत्रियः एकानृतः वैश्यः एकसत्यः शूद्रश्च सर्वानृतः भविष्यति। सर्वेषां वर्णानां सम्यगनुमानमेव तव लक्ष्यम्॥",
+        "create_game_button": "✨ नवीनं क्रीडासत्रं रचया", "require_names": "नामकरणम् अनिवार्यम्",
+        "enter_name_label": "तव नामाङ्कनं कुरु", "error_name_required": "कृपया स्वनाम प्रविशतु। नामकरणम् अनिवार्यमस्ति।",
+        "join_as": "इति प्रविश", "player": "क्रीडकः", "you_joined_as": "त्वम् अस्मिन् नाम्ना सम्मिलितोऽसि",
+        "waiting_for_players": "अन्येषाम् आगमनं प्रतीक्षस्व। {count} चतुर्षु सम्मिलिताः।",
+        "players_in_room": "अस्मिन् सत्रे क्रीडकाः", "you_are": "त्वमसि", "your_rule": "तव नियमः",
+        "write_three_sentences": "अधः स्ववाक्यानि लिख।", "sentence_1": "प्रथमं वाक्यम्", "sentence_2": "द्वितीयं वाक्यम्", "sentence_3": "तृतीयं वाक्यम्",
+        "submit_sentences": "वाक्यानि समर्पय", "error_all_sentences": "कृपया त्रीणि वाक्यानि लिख।",
+        "submission_success": "✅ तव वाक्यानि समर्पितानि।", "waiting_for_others_submit": "अन्यक्रीडकानां समर्पणं प्रतीक्षस्व।",
+        "players_submitted": "{count}/{total} क्रीडकैः समर्पितम्।", "guessing_time": "🤔 अनुमानपर्व",
+        "guessing_instructions": "प्रत्येकस्य क्रीडकस्य वर्णं योजय।", "player_sentences": "{name} इत्यस्य वाक्यानि",
+        "your_guesses": "तव अनुमानानि", "submit_guess": "अनुमानं निश्चिनु", "error_all_guesses": "कृपया सर्वेषां क्रीडकानां कृते वर्णान् योजय।",
+        "guess_submitted": "✅ तवानुमानं समर्पितम्। परिणामान् प्रतीक्षस्व।", "reveal_results": "सर्वेभ्यः परिणामान् प्रकाशयतु",
+        "results_are_in": "✨ परिणामाः आगताः ✨", "true_varnas": "यथार्थवर्णाः", "player_was_a": "{name} वस्तुतः आसीत्",
+        "scoring": "🏆 अङ्कगणना", "no_correct_guesses": "केनचिदपि सम्यक् नानुमितम्। अस्मिन् चक्रे कोऽपि अङ्को न दीयते।",
         "correct_guessers_info": "{count} जनैः सम्यगनुमितम्। तेषु प्रत्येकं **{points} अङ्कान्** प्राप्नोति।",
-        "leaderboard": "अङ्कतालिका",
-        "points": "अङ्काः",
-        "start_new_round": "🔄 नवीनं चक्रमारभस्व",
-        "game_links_expander": "🔗 क्रीडासूत्रं दर्शय",
-        "player_link_info": "क्रीडकेभ्यः सूत्रम्",
-        "viewer_link_info": "दर्शकेभ्यः सूत्रम्",
-        "game_room_not_found": "क्रीडासत्रं न लब्धम्।",
-        "go_to_main_menu": "मुख्यपृष्ठं गच्छ",
-        "host_controls": "आतिथेयस्य नियन्त्रणम्",
-        "end_game": "क्रीडां समापय",
-        "quit_game": "क्रीडां त्यज",
-        "confirm_quit_game": "निश्चितं त्यक्तुमिच्छसि?",
-        "confirm_end_game": "निश्चितम्? एतत् सर्वेषां कृते सत्रं समापयिष्यति।",
-        "game_ended_by_host": "आतिथेयेन क्रीडा समाप्ता॥",
-        "host_indicator": "आतिथेयः",
-        "viewer": "दर्शकः",
+        "leaderboard": "अङ्कतालिका", "points": "अङ्काः", "start_new_round": "🔄 नवीनं चक्रमारभस्व",
+        "share_the_game": "🔗 क्रीडां प्रसारय", "player_link_info": "क्रीडकसङ्केतः", "viewer_link_info": "दर्शक-सङ्केतः",
+        "game_full_warning": "इयं क्रीडा पूर्णा। त्वं दर्शकत्वेन सम्मिलितोऽसि।", "game_room_not_found": "क्रीडासत्रं न लब्धम्।",
+        "go_to_main_menu": "मुख्यपृष्ठं गच्छ", "refresh_status": "🔄 स्थितिं नवीकुरु", "viewer": "दर्शकः",
+        "guesser_a_viewer": "एको दर्शकः", "host_controls": "आतिथेयस्य नियन्त्रणम्", "you_are_host": "त्वम् आतिथेयः असि।",
+        "host_transfer_notice": "आतिथेयः क्रीडातः निर्गतः। त्वम् इदानीं नूतनः आतिथेयः।",
+        "end_game": "क्रीडां समापय", "confirm_end_game": "निश्चितं क्रीडां समापयितुमिच्छसि? एतत् सर्वेषां कृते सत्रं निष्कासयिष्यति।",
+        "game_ended_by_host": "आतिथेयेन क्रीडा समापिता।", "quit_game": "क्रीडातः निर्गच्छ", "confirm_quit_game": "निश्चितं निर्गन्तुमिच्छसि?",
+        "rules": "नियमाः", "you": "त्वम्", "host": "आतिथेयः"
     },
     "en": {
-        "lang_select": "Language",
-        "game_title": "Satyasatyam",
-        "welcome_intro": "Welcome. This is a game of truth and untruth for four players.",
-        "create_game_button": "✨ Create a New Game Session",
-        "require_names": "Require names",
-        "enter_name_label": "Enter your name",
-        "error_name_required": "A name is required to join this game.",
-        "error_name_taken": "This name is already taken. Please choose another.",
-        "join_as": "Join as",
-        "player": "Player",
-        "you_joined_as": "You have joined as {name}.",
-        "waiting_for_players": "Waiting for other players to join",
-        "players_in_room": "Players in this Session",
-        "you_are": "You are",
-        "your_rule": "Your rule",
-        "write_three_sentences": "Write your three sentences below.",
-        "sentence_1": "Sentence 1", "sentence_2": "Sentence 2", "sentence_3": "Sentence 3",
-        "submit_sentences": "Submit Sentences",
-        "error_all_sentences": "Please write three sentences.",
-        "submission_success": "✅ Your sentences are submitted. Waiting for others.",
-        "progress_text": "{count} of 4 players have submitted.",
-        "guessing_time": "🤔 Guessing Time",
-        "guessing_instructions": "Match each player to their correct Varna.",
-        "player_sentences": "{name}'s Sentences",
-        "your_guesses": "Your Guesses",
-        "submit_guess": "Confirm Guess",
-        "guess_submitted": "✅ Your guess is submitted! Waiting for the results.",
-        "reveal_results": "Reveal Results for Everyone",
-        "results_are_in": "✨ The results are in! ✨",
-        "true_varnas": "The True Varnas",
-        "scoring": "🏆 Scoring",
-        "no_correct_guesses": "Nobody guessed correctly! No points are awarded this round.",
-        "correct_guessers_info": "{count} people guessed correctly! They each receive **{points} points**.",
-        "leaderboard": "Leaderboard",
-        "points": "points",
-        "start_new_round": "🔄 Start a New Round",
-        "game_links_expander": "🔗 Show Game Links",
-        "player_link_info": "Player Link",
-        "viewer_link_info": "Viewer Link",
-        "game_room_not_found": "Game session not found.",
-        "go_to_main_menu": "Go to Main Menu",
-        "host_controls": "Host Controls",
-        "end_game": "End Game",
-        "quit_game": "Quit Game",
-        "confirm_quit_game": "Are you sure you want to quit?",
-        "confirm_end_game": "Are you sure? This will end the session for everyone.",
-        "game_ended_by_host": "The game was ended by the host.",
-        "host_indicator": "Host",
-        "viewer": "Viewer",
+        "game_title": "Satyasatyam", "language_select": "Language",
+        "welcome_intro": "Welcome. This is a four-player game to test truth and untruth.",
+        "welcome_rules": "Here, one will be the all-truth Brahmin, one the one-lie Kshatriya, one the one-truth Vaishya, and one the all-lie Shudra. Your goal is to correctly guess everyone's Varna.",
+        "create_game_button": "✨ Create a New Game Room", "require_names": "Require names",
+        "enter_name_label": "Enter your name", "error_name_required": "Please enter your name. It is required for this game.",
+        "join_as": "Join as", "player": "Player", "you_joined_as": "You have joined as",
+        "waiting_for_players": "Waiting for other players... {count} of four have joined.",
+        "players_in_room": "Players in this Room", "you_are": "You are the", "your_rule": "Your Rule",
+        "write_three_sentences": "Write your three sentences below.", "sentence_1": "Sentence 1", "sentence_2": "Sentence 2", "sentence_3": "Sentence 3",
+        "submit_sentences": "Submit Sentences", "error_all_sentences": "Please write all three sentences.",
+        "submission_success": "✅ Your sentences have been submitted.", "waiting_for_others_submit": "Waiting for other players to submit...",
+        "players_submitted": "{count}/{total} players have submitted.", "guessing_time": "🤔 Guessing Time!",
+        "guessing_instructions": "Match each player to their Varna.", "player_sentences": "{name}'s Sentences",
+        "your_guesses": "Your Guesses", "submit_guess": "Submit Guess", "error_all_guesses": "Please assign a Varna to every player.",
+        "guess_submitted": "✅ Your guess has been submitted! Waiting for results.", "reveal_results": "Reveal Results for Everyone",
+        "results_are_in": "✨ Results Are In! ✨", "true_varnas": "The True Varnas", "player_was_a": "{name} was actually the",
+        "scoring": "🏆 Scoring", "no_correct_guesses": "Nobody guessed everything correctly! No points awarded this round.",
+        "correct_guessers_info": "{count} person/people guessed correctly! They each get **{points} points**.",
+        "leaderboard": "Leaderboard", "points": "points", "start_new_round": "🔄 Start a New Round",
+        "share_the_game": "🔗 Share the Game", "player_link_info": "Player Link", "viewer_link_info": "Viewer Link",
+        "game_full_warning": "This game is full. You have joined as a viewer.", "game_room_not_found": "Game room not found.",
+        "go_to_main_menu": "Go to Main Menu", "refresh_status": "🔄 Refresh Status", "viewer": "Viewer",
+        "guesser_a_viewer": "A Viewer", "host_controls": "Host Controls", "you_are_host": "You are the host.",
+        "host_transfer_notice": "The host has quit. You are the new host.",
+        "end_game": "End Game", "confirm_end_game": "Are you sure you want to end the game? This will delete the session for everyone.",
+        "game_ended_by_host": "The game was ended by the host.", "quit_game": "Quit Game", "confirm_quit_game": "Are you sure you want to quit?",
+        "rules": "Rules", "you": "You", "host": "Host"
     }
 }
 
-# --- 3. GAME LOGIC & STATE MANAGEMENT ---
-def get_game_filepath(game_id):
-    return os.path.join(GAME_DIR, f"{game_id}.json")
-
-def get_initial_state(game_id, settings, host_user_id):
-    shuffled_varnas = random.sample(VARNA_KEYS, len(VARNA_KEYS))
-    return {
-        "id": game_id, "phase": "joining", "settings": settings,
-        "players": {}, "player_user_ids": {}, "host_user_id": host_user_id,
-        "true_varna_map": {f"player_{i+1}": varna for i, varna in enumerate(shuffled_varnas)},
-        "guesses": {}, "scores": {}
-    }
-
+# --- STATE MANAGEMENT & HELPERS ---
+def get_game_filepath(game_id): return os.path.join(GAME_DIR, f"{game_id}.json")
 def load_game_state(game_id):
     if not game_id: return None
     filepath = get_game_filepath(game_id)
     try:
         with open(filepath, 'r', encoding='utf-8') as f: return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError): return None
-
 def save_game_state(state):
     if not state: return
     os.makedirs(GAME_DIR, exist_ok=True)
-    with open(get_game_filepath(state['id']), 'w', encoding='utf-8') as f:
-        json.dump(state, f, indent=2, ensure_ascii=False)
-
-def manage_session_and_get_info():
-    """The brain of the user session. Handles reloads and assigns roles."""
-    user_id = st.session_state.setdefault('user_id', str(uuid.uuid4()))
-    game_id = st.query_params.get("id")
-    is_viewer = st.query_params.get("role") == "viewer"
-    
-    # Try to find if this user is already a player in the game (handles reloads)
-    state = load_game_state(game_id)
-    if state and user_id in state['player_user_ids']:
-        st.session_state['player_id'] = state['player_user_ids'][user_id]
-    
-    player_id = st.session_state.get('player_id')
-    return user_id, player_id, game_id, is_viewer
-
+    with open(get_game_filepath(state['id']), 'w', encoding='utf-8') as f: json.dump(state, f, indent=2, ensure_ascii=False)
+def get_initial_state(game_id, settings):
+    shuffled_varnas = random.sample(VARNA_KEYS, len(VARNA_KEYS))
+    return {
+        "id": game_id, "phase": "joining", "players": {}, "host_id": get_user_session()['user_id'],
+        "player_user_ids": {}, "true_varna_map": {f"player_{i+1}": varna for i, varna in enumerate(shuffled_varnas)},
+        "guesses": {}, "scores": {}, "settings": settings
+    }
+def get_user_session():
+    if "user_id" not in st.session_state: st.session_state.user_id = str(uuid.uuid4())
+    return {"user_id": st.session_state.user_id, "player_id": st.session_state.get("player_id")}
+def re_establish_session(state, user_id):
+    if 'player_id' not in st.session_state:
+        for p_id, u_id in state.get("player_user_ids", {}).items():
+            if u_id == user_id: st.session_state.player_id = p_id; break
 def t(key, **kwargs):
-    """Robust translation helper."""
     lang = st.session_state.get('lang', 'sa')
-    text = TRANSLATIONS.get(lang, {}).get(key) or TRANSLATIONS.get('en', {}).get(key, key.replace('_', ' ').title())
-    if lang == 'sa' and kwargs:
+    text = TRANSLATIONS.get(lang, TRANSLATIONS['en']).get(key, key)
+    if lang == 'sa':
         for k, v in kwargs.items():
             if isinstance(v, (int, str)) and str(v).isdigit(): kwargs[k] = to_devanagari(v)
     return text.format(**kwargs)
 
-# --- 4. UI COMPONENTS ---
+# --- UI COMPONENTS ---
+def display_sidebar(state, session):
+    with st.sidebar:
+        st.title("सत्यासत्यम्")
+        st.selectbox(t('language_select'), options=['sa', 'en'], format_func=lambda x: "संस्कृतम्" if x == 'sa' else "English", key='lang')
+        st.markdown("---")
+        if state:
+            if session.get('player_id'): display_game_controls(state, session)
+            st.subheader(t('players_in_room'))
+            display_player_list(state, session)
+            st.subheader(t('rules'))
+            for varna_key in VARNA_KEYS:
+                details = VARNA_DETAILS[varna_key][st.session_state.lang]
+                st.markdown(f"**{details['name']}**: {details['rule']}")
+def display_player_list(state, session):
+    for p_id in sorted(state['players'].keys()):
+        player_name = state['players'][p_id]['name']
+        is_you = p_id == session.get('player_id')
+        is_host = state.get('player_user_ids', {}).get(p_id) == state.get('host_id')
+        
+        you_marker = f" **({t('you')})**" if is_you else ""
+        host_marker = " 👑" if is_host else ""
+        st.markdown(f"- {player_name}{host_marker}{you_marker}")
+def display_game_controls(state, session):
+    st.markdown("---")
+    is_host = state.get('host_id') == session['user_id']
+    if is_host: st.success(t('you_are_host'))
+
+    if st.button(t('quit_game'), use_container_width=True):
+        if st.checkbox(t('confirm_quit_game'), key=f"quit_{session['user_id']}"):
+            player_id_to_remove = session['player_id']
+            if player_id_to_remove in state['players']:
+                del state['players'][player_id_to_remove]
+                del state['player_user_ids'][player_id_to_remove]
+                
+                if is_host: # Host transfer logic
+                    if state['player_user_ids']:
+                        next_host_pid = sorted(state['player_user_ids'].keys())[0]
+                        state['host_id'] = state['player_user_ids'][next_host_pid]
+                        if session['user_id'] == state.get('host_id'): # Check if I am the new host
+                             st.toast(t('host_transfer_notice'))
+                    else: # No one left to be host
+                        state['phase'] = 'aborted'
+                
+                if len(state['players']) < 4 and state['phase'] != 'joining':
+                    state['phase'] = 'aborted' # Not enough players to continue
+                
+                save_game_state(state)
+                st.session_state.player_id = None
+                st.rerun()
+
+    if is_host:
+        if st.button(t('end_game'), use_container_width=True, type="primary"):
+            if st.checkbox(t('confirm_end_game'), key=f"end_{session['user_id']}"):
+                state['phase'] = 'aborted' # Set to graceful end state
+                save_game_state(state)
+                st.rerun()
+def display_game_links(state):
+    with st.expander(t('share_the_game')):
+        player_link = f"{BASE_URL}/?id={state['id']}"
+        viewer_link = f"{player_link}&role=viewer"
+        st.caption(t('player_link_info'))
+        st.code(player_link, language=None)
+        st.caption(t('viewer_link_info'))
+        st.code(viewer_link, language=None)
 def display_main_menu():
     st.title(t('game_title'))
     st.write(t('welcome_intro'))
+    st.write(t('welcome_rules'))
     require_names = st.checkbox(t('require_names'), value=True)
     if st.button(t('create_game_button')):
-        user_id = st.session_state.setdefault('user_id', str(uuid.uuid4()))
-        game_id = str(uuid.uuid4().hex[:6].upper())
-        state = get_initial_state(game_id, {"require_names": require_names}, user_id)
-        save_game_state(state)
+        state = get_initial_state(str(uuid.uuid4().hex[:6].upper()), {"require_names": require_names})
         st.session_state.player_id = "player_1"
-        st.query_params["id"] = game_id
+        state['player_user_ids']['player_1'] = get_user_session()['user_id']
+        save_game_state(state)
+        st.query_params["id"] = state['id']
         st.rerun()
 
-def display_joining_phase(state, user_id):
-    # Find the next available player slot
-    player_slots = {f"player_{i+1}" for i in range(4)}
-    joined_slots = set(state['players'].keys())
-    available_slots = sorted(list(player_slots - joined_slots))
-    if not available_slots:
-        st.warning("All player slots are currently full.")
-        return
-    
-    player_id_to_join = st.session_state.get('player_id') or available_slots[0]
-    
-    player_num = player_id_to_join.split('_')[1]
-    default_name = f"{t('player')} {t(key='player', count=player_num)}"
+# --- GAME PHASE DISPLAYS ---
+def display_joining_phase(state, session):
+    player_id, user_id = session['player_id'], session['user_id']
+    if not player_id: # User needs to be assigned a player slot
+        available_slots = [f"player_{i+1}" for i in range(4) if f"player_{i+1}" not in state['players']]
+        if not available_slots: st.warning(t('game_full_warning')); return
+        player_id = st.session_state.player_id = available_slots[0]
+        state['player_user_ids'][player_id] = user_id
+        save_game_state(state)
 
-    player_name_input = st.text_input(t('enter_name_label'), placeholder=default_name, key="player_name_input")
+    player_num_str = "".join(filter(str.isdigit, player_id))
+    default_name = f"{t('player')} {t(key='', count=player_num_str)}"
+    player_name = st.text_input(t('enter_name_label'), placeholder=default_name)
     
     if st.button(f"{default_name} {t('join_as')}"):
-        name_to_save = player_name_input.strip()
-        existing_names = [p['name'] for p in state['players'].values()]
-        
-        if state['settings'].get('require_names') and not name_to_save: st.error(t('error_name_required'))
-        elif name_to_save in existing_names: st.error(t('error_name_taken'))
+        name_to_save = player_name.strip()
+        if state['settings'].get('require_names', False) and not name_to_save:
+            st.error(t('error_name_required'))
         else:
             if not name_to_save: name_to_save = default_name
-            state['players'][player_id_to_join] = {"name": name_to_save, "user_id": user_id}
-            state['player_user_ids'][user_id] = player_id_to_join
-            state['scores'].setdefault(name_to_save, 0)
-            st.session_state['player_id'] = player_id_to_join
+            state['players'][player_id] = {"name": name_to_save, "sentences": None, "submitted": False}
+            if not state['scores'].get(name_to_save): state['scores'][name_to_save] = 0
+            if len(state['players']) == 4: state['phase'] = "writing"
             save_game_state(state)
             st.rerun()
+def display_writing_phase(state, session):
+    player_data = state['players'][session['player_id']]
+    if player_data['submitted']:
+        st.success(t('submission_success'))
+        submitted_count = sum(1 for p in state['players'].values() if p['submitted'])
+        progress_text = t('players_submitted', count=submitted_count, total=to_devanagari('4')) if st.session_state.lang == 'sa' else t('players_submitted', count=submitted_count, total=4)
+        st.progress(submitted_count / 4, text=progress_text)
+        return
 
-def display_writing_phase(state, player_id):
-    my_varna_key = state['true_varna_map'][player_id]
+    my_varna_key = state['true_varna_map'][session['player_id']]
     varna_details = VARNA_DETAILS[my_varna_key][st.session_state.lang]
     st.header(f"{t('you_are')} **{varna_details['name']}**")
     st.warning(f"**{t('your_rule')}** {varna_details['rule']}")
+
     with st.form("sentence_form"):
-        sentences = [st.text_area(t(f'sentence_{i+1}'), height=80) for i in range(3)]
+        s1 = st.text_area(t('sentence_1'), key="s1", height=80)
+        s2 = st.text_area(t('sentence_2'), key="s2", height=80)
+        s3 = st.text_area(t('sentence_3'), key="s3", height=80)
         if st.form_submit_button(t('submit_sentences')):
-            if all(sentences):
-                state['players'][player_id]['sentences'] = sentences
-                if len(state['players']) == 4 and all('sentences' in p for p in state['players'].values()):
-                    state['phase'] = "guessing"
-                save_game_state(state)
-                st.rerun()
-            else: st.error(t('error_all_sentences'))
+            if not all([s1, s2, s3]): st.error(t('error_all_sentences'))
+            else:
+                player_data['sentences'] = [s1, s2, s3]; player_data['submitted'] = True
+                if all(p['submitted'] for p in state['players'].values()): state['phase'] = "guessing"
+                save_game_state(state); st.rerun()
+def display_match_the_following_guessing(state, session):
+    if session['user_id'] in state['guesses']:
+        st.success(t('guess_submitted')); return
 
-# Other display functions (guessing, results) are similar to the improved version from before, but are assumed to be implemented correctly here for brevity.
-# The core changes are in main(), session management, and the control functions below.
+    st.header(t('guessing_time')); st.info(t('guessing_instructions'))
+    for p_id, p_data in sorted(state['players'].items()):
+        player_num = p_id.split('_')[-1]
+        sent_nums = [t(key='', count=n) for n in ['1', '2', '3']]
+        with st.expander(t('player_sentences', name=p_data['name']), expanded=True):
+            st.markdown(f"{sent_nums[0]}. *{p_data['sentences'][0]}*\n\n{sent_nums[1]}. *{p_data['sentences'][1]}*\n\n{sent_nums[2]}. *{p_data['sentences'][2]}*")
 
-def display_game_links(state):
-    with st.expander(t('game_links_expander')):
-        player_link = f"{BASE_URL}/?id={state['id']}"
-        viewer_link = f"{BASE_URL}/?id={state['id']}&role=viewer"
-        st.markdown(f"**{t('player_link_info')}**")
-        st.code(player_link, language=None)
-        st.markdown(f"**{t('viewer_link_info')}**")
-        st.code(viewer_link, language=None)
-
-def display_player_footer(state):
-    st.markdown("---")
-    st.subheader(t('players_in_room'))
-    cols = st.columns(4)
-    for i, p_id in enumerate(sorted(state['players'].keys())):
-        p_data = state['players'][p_id]
-        is_host = p_data.get('user_id') == state.get('host_user_id')
-        cols[i].markdown(f"**{p_data['name']}** {'👑' if is_host else ''}")
-
-def display_controls(state, user_id, player_id):
-    is_host = state.get('host_user_id') == user_id
-    is_player = player_id is not None
+    st.subheader(t('your_guesses'))
+    player_ids = sorted(state['players'].keys())
+    varna_options = [VARNA_DETAILS[key][st.session_state.lang]['name'] for key in VARNA_KEYS]
     
-    st.markdown("---")
-    cols = st.columns([3, 1, 1]) # Layout for refresh, quit, end game
+    if 'guesses' not in st.session_state: st.session_state.guesses = {p_id: None for p_id in player_ids}
 
-    with cols[0]:
-        if st.button("🔄 " + t('refresh_status'), use_container_width=True):
-            st.rerun()
+    cols = st.columns(len(player_ids))
+    for i, p_id in enumerate(player_ids):
+        with cols[i]:
+            player_name = state['players'][p_id]['name']
+            used_varnas = [v for v in st.session_state.guesses.values() if v is not None and v != st.session_state.guesses[p_id]]
+            available_varnas = [v for v in varna_options if v not in used_varnas]
+            st.session_state.guesses[p_id] = st.selectbox(f"**{player_name}**", available_varnas, index=None, placeholder="---", key=f"guess_{p_id}")
+    
+    if st.button(t('submit_guess'), use_container_width=True):
+        if any(v is None for v in st.session_state.guesses.values()):
+            st.error(t('error_all_guesses'))
+        else:
+            varna_name_to_key_map = {VARNA_DETAILS[key][st.session_state.lang]['name']: key for key in VARNA_KEYS}
+            state['guesses'][session['user_id']] = {p_id: varna_name_to_key_map[v_name] for p_id, v_name in st.session_state.guesses.items()}
+            del st.session_state.guesses # Clean up for next round
+            save_game_state(state); st.rerun()
 
-    with cols[1]:
-        if is_player:
-            if st.button("🚪 " + t('quit_game'), use_container_width=True):
-                if st.checkbox(t('confirm_quit_game'), key=f"quit_{user_id}"):
-                    # Remove player from all relevant places
-                    state['players'].pop(player_id, None)
-                    state['player_user_ids'].pop(user_id, None)
-                    
-                    # If host quit, find a new host
-                    if is_host:
-                        new_host_id = None
-                        for p_key in sorted(state['players'].keys()):
-                            new_host_id = state['players'][p_key].get('user_id')
-                            if new_host_id: break
-                        state['host_user_id'] = new_host_id
-
-                    save_game_state(state)
-                    # Clear session state for the quitting user
-                    for key in ['player_id']:
-                        if key in st.session_state: del st.session_state[key]
-                    st.rerun()
-
-    with cols[2]:
-        if is_host:
-            if st.button("🛑 " + t('end_game'), use_container_width=True, type="primary"):
-                 if st.checkbox(t('confirm_end_game'), key=f"end_{user_id}"):
-                    state['phase'] = 'ended_by_host' # Set terminal state
-                    save_game_state(state)
-                    st.rerun()
-
-
-# --- 5. MAIN APPLICATION ---
+# --- MAIN LOGIC ---
 def main():
-    st.set_page_config(page_title="सत्यासत्यम्", layout="centered")
+    st.set_page_config(page_title="सत्यासत्यम्", layout="centered", initial_sidebar_state="expanded")
     
-    lang = st.radio(t('lang_select'), options=['sa', 'en'], format_func=lambda x: "संस्कृतम्" if x == 'sa' else "English", horizontal=True, key='lang')
-
-    user_id, player_id, game_id, is_viewer = manage_session_and_get_info()
+    game_id = st.query_params.get("id")
     state = load_game_state(game_id)
+    session = get_user_session()
     
-    if not game_id:
-        display_main_menu()
-        return
+    if state and state.get('phase') != 'joining': st_autorefresh(interval=2000, limit=None)
+
+    if state: re_establish_session(state, session['user_id'])
+    session = get_user_session() # Re-fetch session after potential re-establishment
+
+    display_sidebar(state, session)
 
     if not state:
-        st.error(t('game_room_not_found'))
+        display_main_menu()
+        if game_id: st.error(t('game_room_not_found'))
+        return
+
+    # --- Main Page Routing ---
+    if state['phase'] == 'aborted':
+        st.info(t('game_ended_by_host'))
         if st.button(t('go_to_main_menu')): st.query_params.clear(); st.rerun()
-        return
-
-    # --- Phase Routing ---
-    phase = state['phase']
-
-    if phase == 'ended_by_host':
-        st.success(f"👑 {t('game_ended_by_host')}")
-        if st.button(t('go_to_main_menu')):
-            # Clean up session for next game
-            for key in ['player_id', 'game_id']:
-                if key in st.session_state: del st.session_state[key]
-            st.query_params.clear()
-            st.rerun()
-        return
-        
-    num_players = len(state['players'])
-    num_sentences = sum(1 for p in state['players'].values() if 'sentences' in p)
-
-    # Automatically determine phase based on game state
-    if num_players < 4:
-        state['phase'] = 'joining'
-    elif num_players == 4 and num_sentences < 4:
-        state['phase'] = 'writing'
-    elif num_players == 4 and num_sentences == 4:
-        state['phase'] = 'guessing'
+    elif state['phase'] == 'joining': display_joining_phase(state, session)
+    elif state['phase'] == 'writing': display_writing_phase(state, session)
+    elif state['phase'] == 'guessing': display_match_the_following_guessing(state, session)
+    elif state['phase'] == 'results': display_results_phase(state) # This can be its own function
     
-    # UI Display based on determined phase
-    if state['phase'] == 'joining':
-        if not is_viewer and not player_id:
-            display_joining_phase(state, user_id)
-        else:
-            st.info(t('waiting_for_players'))
-    
-    elif state['phase'] == 'writing':
-        if is_viewer or 'sentences' in state['players'].get(player_id, {}):
-            progress_val = num_sentences / 4
-            lang_key = st.session_state.get('lang', 'sa')
-            progress_text = t('progress_text', count=num_sentences)
-            st.progress(progress_val, text=progress_text)
-        else:
-            display_writing_phase(state, player_id)
-
-    elif state['phase'] == 'guessing':
-        # display_guessing_phase(state, user_id) # Call the correct guessing function here
-        st.header("Guessing Phase (To be implemented)")
-        
-    elif state['phase'] == 'results':
-        # display_results_phase(state) # Call the correct results function here
-        st.header("Results Phase (To be implemented)")
-        
-    # --- Always-Visible Components ---
-    display_player_footer(state)
     display_game_links(state)
-    display_controls(state, user_id, player_id)
 
 if __name__ == "__main__":
     main()
+
+# Note: The display_results_phase function can be copied from the previous version as it remains largely unchanged.
+# It has been omitted here to keep the code block focused on the new changes.
+# Make sure to include it for the game to be complete.
+def display_results_phase(state):
+    st.header(t('results_are_in'))
+    st.subheader(t('true_varnas'))
+    truth = state['true_varna_map']
+    cols = st.columns(len(state['players']))
+    for i, (p_id, p_data) in enumerate(sorted(state['players'].items())):
+        with cols[i]:
+            true_varna_name = VARNA_DETAILS[truth[p_id]][st.session_state.lang]['name']
+            st.metric(label=t('player_was_a', name=p_data['name']), value=true_varna_name)
+
+    st.subheader(t('scoring'))
+    correct_guessers = []
+    for user_id, guess in state['guesses'].items():
+        if guess == truth:
+            guesser_name = None
+            for p_id, p_data in state['players'].items():
+                if state.get('player_user_ids', {}).get(p_id) == user_id:
+                    guesser_name = p_data['name']
+                    break
+            if not guesser_name: guesser_name = f"{t('guesser_a_viewer')} ({user_id[:6]})"
+            correct_guessers.append(guesser_name)
+
+    if not correct_guessers: st.warning(t('no_correct_guesses'))
+    else:
+        points_per_winner = POINTS_POOL // len(correct_guessers)
+        st.success(t('correct_guessers_info', count=len(correct_guessers), points=points_per_winner))
+        for name in correct_guessers:
+            st.write(f"🎉 **{name}**")
+            state['scores'][name] = state['scores'].get(name, 0) + points_per_winner
+                
+    save_game_state(state)
+
+    st.subheader(t('leaderboard'))
+    if state.get('scores'):
+        sorted_scores = sorted(state['scores'].items(), key=lambda item: item[1], reverse=True)
+        for name, score in sorted_scores: st.markdown(f"**{name}** `{t(key='', points=score)} {t('points')}`")
+
+    if st.button(t('start_new_round')):
+        new_state = get_initial_state(state['id'], state['settings'])
+        new_state['players'] = {p_id: {"name": p_data["name"], "sentences": None, "submitted": False} for p_id, p_data in state['players'].items()}
+        new_state['player_user_ids'] = state['player_user_ids']
+        new_state['phase'] = 'writing'
+        new_state['scores'] = state.get('scores', {})
+        new_state['host_id'] = state.get('host_id')
+        save_game_state(new_state)
+        st.rerun()
