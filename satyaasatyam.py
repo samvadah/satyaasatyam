@@ -382,7 +382,7 @@ def main():
     elif state['phase'] == 'results': display_results_phase(state)
 
 if __name__ == "__main__":
-    main()rs'][player_id]['name']}।**")
+    main()rs'][player_id]['name']}**।")
         if len(state['players']) == 4:
             state['phase'] = "writing"
             save_game_state(game_id, state)
