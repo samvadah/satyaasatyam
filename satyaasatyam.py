@@ -33,7 +33,6 @@ SENTENCE_PROMPTS = {
     "Shudra": ["false_1", "false_2", "false_3"]
 }
 
-# Used to grade the sentences in the results phase
 SENTENCE_MARKS = {
     "Brahmin": ["✅", "✅", "✅"],
     "Kshatriya": ["✅", "✅", "❌"],
@@ -69,6 +68,7 @@ TRANSLATIONS = {
         "your_guesses": "तव अनुमानानि",
         "submit_guess": "अनुमानं निश्चिनु",
         "error_all_guesses": "कृपया सर्वेभ्यः वर्णं चिनु।",
+        "error_unique_guesses": "एकमेव वर्णं द्वयोः क्रीडकयोः दातुं न शक्यते। भिन्नवर्णान् चिनु।",
         "guess_submitted": "✅ तवानुमानं समर्पितम्। परिणामान् प्रतीक्षस्व।",
         "status_submitted": "✅ समर्पितम्",
         "status_writing": "⏳ लिखति",
@@ -125,6 +125,7 @@ TRANSLATIONS = {
         "your_guesses": "Your Guesses",
         "submit_guess": "Confirm Guess",
         "error_all_guesses": "Please assign a Varna to everyone.",
+        "error_unique_guesses": "You cannot assign the same Varna to multiple players. Select unique Varnas.",
         "guess_submitted": "✅ Your guess is submitted! Waiting for the results.",
         "status_submitted": "✅ Submitted",
         "status_writing": "⏳ Writing",
@@ -163,7 +164,7 @@ def get_game_filepath(game_id):
 def get_initial_state(game_id, settings, host_user_id):
     shuffled_varnas = random.sample(VARNA_KEYS, len(VARNA_KEYS))
     return {
-        "id": game_id, "phase": "joining", "settings": settings,
+        "id": game_id, "round": 1, "phase": "joining", "settings": settings,
         "players": {}, "player_user_ids": {}, "host_user_id": host_user_id,
         "true_varna_map": {f"player_{i+1}": varna for i, varna in enumerate(shuffled_varnas)},
         "guesses": {}, "scores": {}, "last_round_scores": {}, "chat": [], "disqualified": []
@@ -207,12 +208,16 @@ def t(key, **kwargs):
     return text.format(**kwargs)
 
 def format_player_name(p_id, p_data, state):
-    """Formats player name perfectly based on language: १। Name 👑 or 1. Name 👑"""
     num = p_id.split('_')[1]
     is_sa = st.session_state.get('lang') == 'sa'
     num_str = f"{to_devanagari(num)}।" if is_sa else f"{num}."
     host_str = " 👑" if p_data.get('user_id') == state.get('host_user_id') else ""
     return f"{num_str} {p_data['name']}{host_str}"
+
+def get_player_number_str(p_id):
+    if not p_id: return "V"
+    num = p_id.split('_')[1]
+    return to_devanagari(num) if st.session_state.get('lang') == 'sa' else num
 
 # --- 4. UI COMPONENTS ---
 def display_player_header(state, player_id):
@@ -293,14 +298,15 @@ def display_guessing_phase(state, user_id, player_id):
     players_to_guess = [pid for pid in state['players'] if pid != player_id]
     varna_keys_to_guess = [v for v in VARNA_KEYS if v != my_varna]
 
-    if f"guesses_{state['id']}" not in st.session_state:
-        st.session_state[f"guesses_{state['id']}"] = {pid: None for pid in players_to_guess}
-    temp_guesses = st.session_state[f"guesses_{state['id']}"]
+    # Use Round Number in session state key to wipe guesses clean on new round
+    guess_key = f"guesses_{state['id']}_round_{state.get('round', 1)}"
+    if guess_key not in st.session_state:
+        st.session_state[guess_key] = {pid: None for pid in players_to_guess}
+    temp_guesses = st.session_state[guess_key]
 
     st.header(t('guessing_time'))
     st.info(t('guessing_instructions'))
 
-    # Display other players' sentences
     for p_id in players_to_guess:
         p_data = state['players'][p_id]
         formatted_name = format_player_name(p_id, p_data, state)
@@ -317,10 +323,8 @@ def display_guessing_phase(state, user_id, player_id):
             formatted_name = format_player_name(pid, p_data, state)
             current_selection = temp_guesses.get(pid)
             
-            used_by_others = [val for p, val in temp_guesses.items() if p != pid and val is not None]
-            available_keys = [k for k in varna_keys_to_guess if k not in used_by_others]
-            
-            options_names = [VARNA_DETAILS[k][st.session_state.lang]['name'] for k in available_keys]
+            # Show ALL available options in every dropdown (allows users to swap without UI disappearing)
+            options_names = [VARNA_DETAILS[k][st.session_state.lang]['name'] for k in varna_keys_to_guess]
             curr_val_name = VARNA_DETAILS[current_selection][st.session_state.lang]['name'] if current_selection else None
             idx = options_names.index(curr_val_name) if curr_val_name in options_names else None
             
@@ -335,6 +339,8 @@ def display_guessing_phase(state, user_id, player_id):
     if st.button(t('submit_guess'), type="primary"):
         if None in temp_guesses.values():
             st.error(t('error_all_guesses'))
+        elif len(set(temp_guesses.values())) < len(temp_guesses):
+            st.error(t('error_unique_guesses'))
         else:
             final_guesses = temp_guesses.copy()
             if not is_viewer: final_guesses[player_id] = my_varna
@@ -345,7 +351,6 @@ def display_guessing_phase(state, user_id, player_id):
 def display_results_phase(state, user_id):
     st.header(t('results_are_in'))
     
-    # Sentences Review (True/False Reveal)
     st.subheader(t('sentences_review'))
     for p_id, p_data in sorted(state['players'].items()):
         formatted_name = format_player_name(p_id, p_data, state)
@@ -359,7 +364,6 @@ def display_results_phase(state, user_id):
             st.markdown(f"{num}. {marks[i]} *{sent}*")
         st.markdown("---")
 
-    # Round Scores
     st.subheader(t('round_scores'))
     if not state.get('last_round_scores'):
         st.warning(t('no_correct_guesses'))
@@ -369,7 +373,6 @@ def display_results_phase(state, user_id):
             trophy = " 🏆" if pts == MAX_POINTS else ""
             st.success(f"**{name}**: {pts_str} {t('points')}{trophy}")
 
-    # Total Leaderboard
     st.subheader(t('leaderboard'))
     if state.get('scores'):
         for name, score in sorted(state['scores'].items(), key=lambda x: x[1], reverse=True):
@@ -379,6 +382,7 @@ def display_results_phase(state, user_id):
     if state.get('host_user_id') == user_id:
         if st.button(t('start_new_round'), type="primary"):
             new_state = get_initial_state(state['id'], state['settings'], user_id)
+            new_state['round'] = state.get('round', 1) + 1
             new_state['players'] = {pid: {"name": p["name"], "user_id": p["user_id"]} for pid, p in state['players'].items()}
             new_state['player_user_ids'] = state['player_user_ids']
             new_state['scores'] = state.get('scores', {})
@@ -399,7 +403,8 @@ def display_chat(state, user_id, player_id):
             if cols[1].form_submit_button(t('send')):
                 if prompt:
                     p_data = state.get('players', {}).get(player_id)
-                    sender_name = format_player_name(player_id, p_data, state) if p_data else t('viewer')
+                    # Formats sender name perfectly for chat
+                    sender_name = f"[{get_player_number_str(player_id)}] {p_data['name']}" if p_data else t('viewer')
                     state.setdefault('chat', []).append({"user_id": user_id, "sender": sender_name, "text": prompt})
                     save_game_state(state)
                     st.rerun()
@@ -480,7 +485,7 @@ def main():
     num_guessed = sum(1 for uid in state['player_user_ids'] if uid in state.get('guesses', {}))
     current_time = time.time()
     
-    # --- AUTO-ADVANCE & SCORING LOGIC (Calculates strictly ONCE per round) ---
+    # --- AUTO-ADVANCE & SCORING LOGIC ---
     if state['phase'] == 'joining' and num_players == 4:
         state['phase'] = 'writing'
         state['writing_start_time'] = current_time
@@ -508,7 +513,6 @@ def main():
                     state['guesses'][uid] = "TIMEOUT"
                     state.setdefault('disqualified', []).append(uid)
             
-            # SCORE CALCULATION - HAPPENS ONCE
             truth = state['true_varna_map']
             round_scores = {}
             for uid, guess_dict in state['guesses'].items():
@@ -562,6 +566,7 @@ def main():
         
     elif state['phase'] == 'results':
         display_results_phase(state, user_id)
+        needs_refresh = True # Added so players auto-refresh when Host starts new round!
         
     display_chat(state, user_id, player_id)
     display_footer(state, user_id, player_id)
