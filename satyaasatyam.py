@@ -7,11 +7,12 @@ import time
 
 # --- 1. CONFIGURATION & CONSTANTS ---
 GAME_DIR = "gamerooms"
-POINTS_POOL = 12
 BASE_URL = "https://satyaasatyam.streamlit.app"
 AUTO_REFRESH_SECONDS = 15
-WRITING_TIME_LIMIT = 180  # 3 minutes
+WRITING_TIME_LIMIT = 360  # 6 minutes
 GUESSING_TIME_LIMIT = 120 # 2 minutes
+POINTS_PER_GUESS = 4
+MAX_POINTS = 12
 
 # --- 2. LANGUAGE & CONTENT ---
 def to_devanagari(num_str):
@@ -37,6 +38,8 @@ TRANSLATIONS = {
         "lang_select": "भाषा",
         "game_title": "सत्यासत्यम्",
         "welcome_intro": "सुस्वागतम्। इयं चतुर्णां क्रीडकानां सत्यासत्यपरीक्षा क्रीडा॥ अत्र एको ब्राह्मणः सर्वसत्यवादी क्षत्रिय एकानृतवादी वैश्य एकसत्यवादी शूद्रश्च सर्वानृतवादी भविष्यति। सर्वेषां वर्णानां सम्यगनुमानमेव तव लक्ष्यम्॥",
+        "how_to_play": "क्रीडाविधिः (How to Play)",
+        "how_to_play_text": "१. चत्वारः क्रीडकाः स्वनाम दत्त्वा प्रविशन्ति।\n\n२. प्रत्येकं क्रीडकः एकं वर्णं प्राप्नोति।\n\n३. स्ववर्णस्य नियमानुसारं स्वविषये त्रीणि वाक्यानि लिख। (ब्राह्मणः = ३ सत्यानि। क्षत्रियः = २ सत्ये १ असत्यम्। वैश्यः = १ सत्यं २ असत्ये। शूद्रः = ३ असत्यानि)\n\n४. अन्येषां वाक्यानि पठित्वा तेषां यथार्थवर्णं चिनु।\n\n५. सम्यगनुमानात् प्रतिवर्णं ४ अङ्काः प्राप्यन्ते। पूर्णाङ्काः (१२) प्राप्ते 🏆 प्राप्यते।",
         "create_game_button": "✨ नवीनं क्रीडासत्रं रचया",
         "require_names": "नामकरणम् अनिवार्यम्",
         "enter_name_label": "तव नामाङ्कनं कुरु",
@@ -66,8 +69,7 @@ TRANSLATIONS = {
         "results_are_in": "✨ परिणामाः आगताः ✨",
         "true_varnas": "यथार्थवर्णाः",
         "scoring": "🏆 अङ्कगणना",
-        "no_correct_guesses": "केनचिदपि सम्यक् नानुमितम्। अस्मिन् चक्रे कोऽपि अङ्को न दीयते।",
-        "correct_guessers_info": "{count} जनैः सम्यगनुमितम्। तेषु प्रत्येकं **{points} अङ्कान्** प्राप्नोति।",
+        "round_scores": "अस्मिन् चक्रे प्राप्ताङ्काः",
         "leaderboard": "अङ्कतालिका",
         "points": "अङ्काः",
         "start_new_round": "🔄 नवीनं चक्रमारभस्व",
@@ -76,20 +78,23 @@ TRANSLATIONS = {
         "viewer_link_info": "दर्शकेभ्यः सूत्रम्",
         "game_room_not_found": "क्रीडासत्रं न लब्धम्।",
         "go_to_main_menu": "मुख्यपृष्ठं गच्छ",
-        "host_controls": "आतिथेयस्य नियन्त्रणम्",
         "end_game": "क्रीडां समापय",
         "quit_game": "क्रीडां त्यज",
-        "confirm_quit_game": "निश्चितं त्यक्तुमिच्छसि",
-        "confirm_end_game": "निश्चितम्। एतत् सर्वेषां कृते सत्रं समापयिष्यति।",
+        "confirm_quit_game": "निश्चितं त्यक्तुमिच्छसि?",
+        "confirm_end_game": "निश्चितम्? एतत् सर्वेषां कृते सत्रं समापयिष्यति।",
+        "yes": "आम्",
         "game_ended_by_host": "आतिथेयेन क्रीडा समाप्ता॥",
         "viewer": "दर्शकः",
-        "live_chat": "सजीवसम्भाषणम्",
-        "type_message": "सन्देशं लिख"
+        "live_chat": "💬 सजीवसम्भाषणम्",
+        "type_message": "सन्देशं लिख",
+        "send": "प्रेषय"
     },
     "en": {
         "lang_select": "Language",
         "game_title": "Satyasatyam",
         "welcome_intro": "Welcome. This is a 4-player game of truth and untruth. One player will be the all-truthful Brahmin, one the 1-lie Kshatriya, one the 1-truth Vaishya, and one the all-lie Shudra. Guessing everyone's identity is your goal.",
+        "how_to_play": "How to Play",
+        "how_to_play_text": "1. Four players join the game by entering their names.\n\n2. Each player is secretly assigned a Varna.\n\n3. Write 3 sentences about yourself based on your rule. (Brahmin = 3 Truths. Kshatriya = 2 Truths, 1 Lie. Vaishya = 1 Truth, 2 Lies. Shudra = 3 Lies.)\n\n4. Read others' sentences and guess their true Varna.\n\n5. Get 4 points for each correct guess. Score a perfect 12 to earn a 🏆!",
         "create_game_button": "✨ Create a New Game Session",
         "require_names": "Require names",
         "enter_name_label": "Enter your name",
@@ -119,8 +124,7 @@ TRANSLATIONS = {
         "results_are_in": "✨ The results are in! ✨",
         "true_varnas": "The True Varnas",
         "scoring": "🏆 Scoring",
-        "no_correct_guesses": "Nobody guessed correctly! No points awarded.",
-        "correct_guessers_info": "{count} people guessed correctly! They each receive **{points} points**.",
+        "round_scores": "Scores This Round",
         "leaderboard": "Leaderboard",
         "points": "points",
         "start_new_round": "🔄 Start a New Round",
@@ -129,15 +133,16 @@ TRANSLATIONS = {
         "viewer_link_info": "Viewer Link",
         "game_room_not_found": "Game session not found.",
         "go_to_main_menu": "Go to Main Menu",
-        "host_controls": "Host Controls",
         "end_game": "End Game",
         "quit_game": "Quit Game",
         "confirm_quit_game": "Are you sure you want to quit?",
         "confirm_end_game": "Are you sure? This will end the session for everyone.",
+        "yes": "Yes",
         "game_ended_by_host": "The game was ended by the host.",
         "viewer": "Viewer",
-        "live_chat": "Live Chat",
-        "type_message": "Type a message"
+        "live_chat": "💬 Live Chat",
+        "type_message": "Type a message",
+        "send": "Send"
     }
 }
 
@@ -151,7 +156,7 @@ def get_initial_state(game_id, settings, host_user_id):
         "id": game_id, "phase": "joining", "settings": settings,
         "players": {}, "player_user_ids": {}, "host_user_id": host_user_id,
         "true_varna_map": {f"player_{i+1}": varna for i, varna in enumerate(shuffled_varnas)},
-        "guesses": {}, "scores": {}, "chat": [], "disqualified": []
+        "guesses": {}, "scores": {}, "last_round_scores": {}, "chat": [], "disqualified": []
     }
 
 def load_game_state(game_id):
@@ -243,7 +248,6 @@ def display_writing_phase(state, player_id):
     remaining = max(0, WRITING_TIME_LIMIT - int(elapsed))
     
     st.warning(f"**{t('time_left')}: {remaining // 60}:{remaining % 60:02d}**")
-
     my_varna = state['true_varna_map'][player_id]
     
     with st.form("sentence_form"):
@@ -325,30 +329,17 @@ def display_results_phase(state, user_id):
             true_varna_name = VARNA_DETAILS[truth[p_id]][st.session_state.lang]['name']
             st.metric(label=p_data['name'], value=true_varna_name)
 
-    st.subheader(t('scoring'))
-    correct_guessers = []
-    disqualified = state.get('disqualified', [])
-    
-    for uid, guess in state['guesses'].items():
-        # Disqualified users get 0 points even if they guessed correctly
-        if guess == truth and uid not in disqualified:
-            g_name = state['players'].get(state['player_user_ids'].get(uid, ""), {}).get('name')
-            if not g_name: g_name = f"{t('viewer')} ({uid[:4]})"
-            correct_guessers.append(g_name)
-
-    if not correct_guessers: st.warning(t('no_correct_guesses'))
+    # Round Scores
+    st.subheader(t('round_scores'))
+    if not state.get('last_round_scores'):
+        st.warning(t('no_correct_guesses'))
     else:
-        pts = POINTS_POOL // len(correct_guessers)
-        pts_str = to_devanagari(pts) if st.session_state.lang == 'sa' else pts
-        count_str = to_devanagari(len(correct_guessers)) if st.session_state.lang == 'sa' else len(correct_guessers)
-        
-        st.success(t('correct_guessers_info', count=count_str, points=pts_str))
-        for name in correct_guessers:
-            st.write(f"🎉 **{name}**")
-            if t('viewer') not in name: state['scores'][name] = state['scores'].get(name, 0) + pts
-                
-    save_game_state(state)
+        for name, pts in state['last_round_scores'].items():
+            pts_str = to_devanagari(pts) if st.session_state.lang == 'sa' else pts
+            trophy = " 🏆" if pts == MAX_POINTS else ""
+            st.success(f"**{name}**: {pts_str} {t('points')}{trophy}")
 
+    # Total Leaderboard
     st.subheader(t('leaderboard'))
     if state.get('scores'):
         for name, score in sorted(state['scores'].items(), key=lambda x: x[1], reverse=True):
@@ -365,25 +356,25 @@ def display_results_phase(state, user_id):
             st.rerun()
 
 def display_chat(state, user_id, player_id):
-    st.markdown("---")
-    st.subheader(t('live_chat'))
-    
-    chat_box = st.container(height=300)
-    for msg in state.get('chat', []):
-        with chat_box.chat_message("user" if msg['user_id'] == user_id else "assistant"):
-            st.write(f"**{msg['sender']}**: {msg['text']}")
-            
-    if prompt := st.chat_input(t('type_message')):
-        p_data = state.get('players', {}).get(player_id)
-        sender_name = p_data['name'] if p_data else t('viewer')
-        
-        state.setdefault('chat', []).append({
-            "user_id": user_id, "sender": sender_name, "text": prompt
-        })
-        save_game_state(state)
-        st.rerun()
+    with st.expander(t('live_chat'), expanded=False):
+        chat_box = st.container(height=250)
+        for msg in state.get('chat', []):
+            with chat_box.chat_message("user" if msg['user_id'] == user_id else "assistant"):
+                st.write(f"**{msg['sender']}**: {msg['text']}")
+                
+        with st.form("chat_form", clear_on_submit=True):
+            cols = st.columns([4, 1])
+            prompt = cols[0].text_input(t('type_message'), label_visibility="collapsed")
+            if cols[1].form_submit_button(t('send')):
+                if prompt:
+                    p_data = state.get('players', {}).get(player_id)
+                    sender_name = p_data['name'] if p_data else t('viewer')
+                    state.setdefault('chat', []).append({"user_id": user_id, "sender": sender_name, "text": prompt})
+                    save_game_state(state)
+                    st.rerun()
 
 def display_footer(state, user_id, player_id):
+    st.markdown("---")
     with st.expander(t('game_links_expander')):
         st.write(f"**{t('player_link_info')}**")
         st.code(f"{BASE_URL}/?id={state['id']}")
@@ -393,8 +384,9 @@ def display_footer(state, user_id, player_id):
     cols = st.columns([1, 1])
     if player_id and player_id in state.get('players', {}):
         with cols[0]:
-            if st.button("🚪 " + t('quit_game'), use_container_width=True):
-                if st.checkbox(t('confirm_quit_game'), key="quit"):
+            with st.popover("🚪 " + t('quit_game'), use_container_width=True):
+                st.write(t('confirm_quit_game'))
+                if st.button(t('yes'), key="quit_yes", use_container_width=True):
                     state['players'].pop(player_id, None)
                     state['player_user_ids'].pop(user_id, None)
                     if state.get('host_user_id') == user_id:
@@ -406,8 +398,9 @@ def display_footer(state, user_id, player_id):
     
     if state.get('host_user_id') == user_id:
         with cols[1]:
-            if st.button("🛑 " + t('end_game'), use_container_width=True, type="primary"):
-                 if st.checkbox(t('confirm_end_game'), key="end"):
+            with st.popover("🛑 " + t('end_game'), use_container_width=True):
+                st.write(t('confirm_end_game'))
+                if st.button(t('yes'), key="end_yes", type="primary", use_container_width=True):
                     state['phase'] = 'ended_by_host'
                     save_game_state(state)
                     st.rerun()
@@ -423,6 +416,9 @@ def main():
     if not game_id:
         st.title(t('game_title'))
         st.write(t('welcome_intro'))
+        with st.expander(t('how_to_play')):
+            st.markdown(t('how_to_play_text'))
+            
         require_names = st.checkbox(t('require_names'), value=True)
         if st.button(t('create_game_button')):
             new_id = str(uuid.uuid4().hex[:6].upper())
@@ -446,16 +442,14 @@ def main():
             st.rerun()
         return
 
-    # Banner displayed globally for playing users
     display_player_header(state, player_id)
         
     num_players = len(state['players'])
     num_submitted = sum(1 for p in state['players'].values() if p.get('submitted'))
     num_guessed = sum(1 for uid in state['player_user_ids'] if uid in state.get('guesses', {}))
-
-    # --- AUTO-ADVANCE & GLOBAL TIMEOUT LOGIC ---
     current_time = time.time()
     
+    # --- AUTO-ADVANCE & SCORING LOGIC (Calculates strictly ONCE per round) ---
     if state['phase'] == 'joining' and num_players == 4:
         state['phase'] = 'writing'
         state['writing_start_time'] = current_time
@@ -482,6 +476,25 @@ def main():
                 if uid not in state.setdefault('guesses', {}):
                     state['guesses'][uid] = "TIMEOUT"
                     state.setdefault('disqualified', []).append(uid)
+            
+            # SCORE CALCULATION - HAPPENS ONCE
+            truth = state['true_varna_map']
+            round_scores = {}
+            for uid, guess_dict in state['guesses'].items():
+                pts = 0
+                if uid not in state.get('disqualified', []) and isinstance(guess_dict, dict):
+                    for pid, guessed_varna in guess_dict.items():
+                        if truth.get(pid) == guessed_varna and pid != state['player_user_ids'].get(uid):
+                            pts += POINTS_PER_GUESS
+                            
+                g_name = state['players'].get(state['player_user_ids'].get(uid, ""), {}).get('name')
+                if not g_name: g_name = f"{t('viewer')} ({uid[:4]})"
+                
+                if pts > 0:
+                    round_scores[g_name] = pts
+                    state['scores'][g_name] = state['scores'].get(g_name, 0) + pts
+
+            state['last_round_scores'] = round_scores
             state['phase'] = 'results'
             save_game_state(state)
             st.rerun()
@@ -519,11 +532,9 @@ def main():
     elif state['phase'] == 'results':
         display_results_phase(state, user_id)
         
-    # Constant UI Elements
     display_chat(state, user_id, player_id)
     display_footer(state, user_id, player_id)
 
-    # 15s Auto-Refresh
     if needs_refresh:
         time.sleep(AUTO_REFRESH_SECONDS)
         st.rerun()
