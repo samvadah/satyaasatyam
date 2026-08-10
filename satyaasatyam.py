@@ -53,7 +53,7 @@ TRANSLATIONS = {
         "game_title": "सत्यासत्यम्",
         "welcome_intro": "सुस्वागतम्। इयं चतुर्णां क्रीडकानां सत्यासत्यपरीक्षा क्रीडा॥ अत्र एको ब्राह्मणः सर्वसत्यवादी क्षत्रिय एकानृतवादी वैश्य एकसत्यवादी शूद्रश्च सर्वानृतवादी भविष्यति। सर्वेषां वर्णानां सम्यगनुमानमेव तव लक्ष्यम्॥",
         "how_to_play": "क्रीडाविधिः",
-        "how_to_play_text": "१ चत्वारः क्रीडकाः स्वनाम दत्त्वा प्रविशन्ति।\n\n२ प्रत्येकं क्रीडकः एकं वर्णं प्राप्नोति।\n\n३ स्ववर्णस्य नियमानुसारं स्वविषये त्रीणि वाक्यानि लिख। ब्राह्मणः त्रयः सत्यानि। क्षत्रियः द्वे सत्ये एकम् असत्यम्। वैश्यः एकं सत्यं द्वे असत्ये। शूद्रः त्रयः असत्यानि।\n\n४ अन्येषां वाक्यानि पठित्वा तेषां यथार्थवर्णं चिनु।\n\n५ सम्यगनुमानात् +४ अङ्काः प्राप्यन्ते। अशुद्धानुमानात् -२ अङ्काः न्यूनीभवन्ति। वर्णः न चितः चेत् ० अङ्काः। पूर्णाङ्काः (१२) प्राप्ते 🏆 प्राप्यते।",
+        "how_to_play_text": "१ चत्वारः क्रीडकाः स्वनाम दत्त्वा प्रविशन्ति।\n\n२ प्रत्येकं क्रीडकः एकं वर्णं प्राप्नोति।\n\n३ स्ववर्णस्य नियमानुसारं स्वविषये त्रीणि वाक्यानि लिख। ब्राह्मणः त्रयः सत्यानि। क्षत्रियः द्वे सत्ये एकम् असत्यम्। वैश्यः एकं सत्यं द्वे असत्ये। शूद्रः त्रयः असत्यानि।\n\n४ अन्येषां वाक्यानि पठित्वा तेषां यथार्थवर्णं चिनु।\n\n५ सम्यगनुमानात् ४ अङ्काः प्राप्यन्ते। अशुद्धानुमानात् १ अङ्कः न्यूनीभवन्ति। वर्णः न चितः चेत् ० अङ्काः। पूर्णाङ्काः १२ इतिप्राप्ते 🏆 प्राप्यते।",
         "create_game_button": "✨ नवीनं क्रीडासत्रं रचया",
         "require_names": "नामकरणम् अनिवार्यम्",
         "enter_name_label": "तव नामाङ्कनं कुरु",
@@ -113,7 +113,7 @@ TRANSLATIONS = {
         "game_title": "Satyasatyam",
         "welcome_intro": "Welcome. This is a 4-player game of truth and untruth. One player will be the all-truthful Brahmin, one the 1-lie Kshatriya, one the 1-truth Vaishya, and one the all-lie Shudra. Guessing everyone's identity is your goal.",
         "how_to_play": "How to Play",
-        "how_to_play_text": "1. Four players join the game by entering their names.\n\n2. Each player is secretly assigned a Varna.\n\n3. Write 3 sentences about yourself based on your rule. (Brahmin = 3 Truths. Kshatriya = 2 Truths, 1 Lie. Vaishya = 1 Truth, 2 Lies. Shudra = 3 Lies.)\n\n4. Read others' sentences and guess their true Varna.\n\n5. Get +4 points for a correct guess, and -2 points for a wrong guess. Leave blank to pass (0 points). Score a perfect 12 to earn a 🏆!",
+        "how_to_play_text": "1. Four players join the game by entering their names.\n\n2. Each player is secretly assigned a Varna.\n\n3. Write 3 sentences about yourself based on your rule. (Brahmin = 3 Truths. Kshatriya = 2 Truths, 1 Lie. Vaishya = 1 Truth, 2 Lies. Shudra = 3 Lies.)\n\n4. Read others' sentences and guess their true Varna.\n\n5. Get +4 points for a correct guess, and -1 points for a wrong guess. Leave blank to skip (0 points). Score a perfect 12 to earn a 🏆!",
         "create_game_button": "✨ Create a New Game Session",
         "require_names": "Require names",
         "enter_name_label": "Enter your name",
@@ -572,7 +572,7 @@ def main():
                             elif truth.get(pid) == guessed_varna:
                                 pts += 4
                             else:
-                                pts -= 2
+                                pts -= 1
                             
                 g_name = state['players'].get(state['player_user_ids'].get(uid, ""), {}).get('name')
                 if not g_name: g_name = f"{t('viewer')} ({uid[:4]})"
