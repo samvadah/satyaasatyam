@@ -71,7 +71,8 @@ TRANSLATIONS = {
         "time_up": "समयः समाप्तः",
         "guessing_time": "🤔 अनुमानपर्व",
         "guessing_instructions": "प्रत्येकस्य क्रीडकस्य यथार्थं वर्णं योजय।",
-        "clear_hint": "सङ्केतः - चयनं मार्जयितुं मञ्जूषायां 'x' नुदतु। (अनुमानं न कर्तुम् इच्छसि चेत् रिक्तं त्यजतु)",
+        "skip_option": "--- न चितम् ---",
+        "clear_hint": "सङ्केतः - अनुमानं न कर्तुम् इच्छसि चेत् '--- न चितम् ---' चिनु। (ऋणात्मक-अङ्केभ्यः रक्षणाय)",
         "player_sentences": "वाक्यानि",
         "your_guesses": "तव अनुमानानि",
         "submit_guess": "अनुमानं निश्चिनु",
@@ -86,7 +87,6 @@ TRANSLATIONS = {
         "sentences_review": "वाक्यानां समीक्षा",
         "guesses_review": "अनुमानानां समीक्षा",
         "timeout_guess": "समयसमाप्तेः कारणात् अनुमानं न कृतम्।",
-        "skipped_guess": "न चितम्",
         "true_is": "(यथार्थम् - {varna})",
         "scoring": "🏆 अङ्कगणना",
         "round_scores": "अस्मिन् चक्रे प्राप्ताङ्काः",
@@ -131,7 +131,8 @@ TRANSLATIONS = {
         "time_up": "Time Up",
         "guessing_time": "🤔 Guessing Time",
         "guessing_instructions": "Match each player to their correct Varna.",
-        "clear_hint": "Tip: Click the 'x' in the box to clear a selection. (Leave blank to pass/skip a guess).",
+        "skip_option": "--- Skip/Pass ---",
+        "clear_hint": "Tip: Select '--- Skip/Pass ---' if you don't want to guess to avoid negative points.",
         "player_sentences": "Sentences",
         "your_guesses": "Your Guesses",
         "submit_guess": "Confirm Guess",
@@ -146,7 +147,6 @@ TRANSLATIONS = {
         "sentences_review": "Sentences Review",
         "guesses_review": "Guesses Review",
         "timeout_guess": "Did not guess (Timeout)",
-        "skipped_guess": "Skipped",
         "true_is": "(True: {varna})",
         "scoring": "🏆 Scoring",
         "round_scores": "Scores This Round",
@@ -315,11 +315,9 @@ def display_guessing_phase(state, user_id, player_id):
     players_to_guess = [pid for pid in state['players'] if pid != player_id]
     varna_keys_to_guess = [v for v in VARNA_KEYS if v != my_varna]
 
-    # Session tracker for dropdowns
-    guess_key = f"guesses_{state['id']}"
-    if guess_key not in st.session_state:
-        st.session_state[guess_key] = {pid: None for pid in players_to_guess}
-    temp_guesses = st.session_state[guess_key]
+    if f"guesses_{state['id']}" not in st.session_state:
+        st.session_state[f"guesses_{state['id']}"] = {pid: None for pid in players_to_guess}
+    temp_guesses = st.session_state[f"guesses_{state['id']}"]
 
     st.header(t('guessing_time'))
     st.info(t('guessing_instructions'))
@@ -330,10 +328,12 @@ def display_guessing_phase(state, user_id, player_id):
         formatted_name = format_player_name(p_id, p_data, state)
         with st.expander(f"{formatted_name} - {t('player_sentences')}", expanded=True):
             s1, s2, s3 = (to_devanagari(i) if st.session_state.lang == 'sa' else i for i in [1, 2, 3])
-            st.markdown(f"{s1}। *{p_data['sentences'][0]}*\n\n{s2}। *{p_data['sentences'][1]}*\n\n{s3}। *{p_data['sentences'][2]}*")
+            num_format = "{num}।" if st.session_state.lang == 'sa' else "{num}."
+            st.markdown(f"{num_format.format(num=s1)} *{p_data['sentences'][0]}*\n\n{num_format.format(num=s2)} *{p_data['sentences'][1]}*\n\n{num_format.format(num=s3)} *{p_data['sentences'][2]}*")
 
     st.subheader(t('your_guesses'))
     cols = st.columns(len(players_to_guess))
+    skip_text = t('skip_option')
     
     for i, pid in enumerate(players_to_guess):
         with cols[i]:
@@ -345,19 +345,20 @@ def display_guessing_phase(state, user_id, player_id):
             available_keys = [k for k in varna_keys_to_guess if k not in used_by_others]
             
             options_names = [VARNA_DETAILS[k][st.session_state.lang]['name'] for k in available_keys]
+            full_options = [skip_text] + options_names
+            
             curr_val_name = VARNA_DETAILS[current_selection][st.session_state.lang]['name'] if current_selection else None
-            idx = options_names.index(curr_val_name) if curr_val_name in options_names else None
+            idx = full_options.index(curr_val_name) if curr_val_name in full_options else 0
             
-            selected_name = st.selectbox(f"**{formatted_name}**", options_names, index=idx, key=f"guess_box_{pid}", placeholder="---")
+            selected_name = st.selectbox(f"**{formatted_name}**", full_options, index=idx, key=f"guess_box_{pid}")
             
-            if selected_name:
+            if selected_name == skip_text:
+                temp_guesses[pid] = None
+            else:
                 selected_key = [k for k in VARNA_KEYS if VARNA_DETAILS[k][st.session_state.lang]['name'] == selected_name][0]
                 temp_guesses[pid] = selected_key
-            else:
-                temp_guesses[pid] = None
 
     if st.button(t('submit_guess'), type="primary"):
-        # We allow None values to pass. But we must check for duplicates among the non-None values.
         made_guesses = [v for v in temp_guesses.values() if v is not None]
         if len(set(made_guesses)) < len(made_guesses):
             st.error(t('error_unique_guesses'))
@@ -371,7 +372,6 @@ def display_guessing_phase(state, user_id, player_id):
 def display_results_phase(state, user_id):
     st.header(t('results_are_in'))
     
-    # Sentences Review (True/False Reveal)
     st.subheader(t('sentences_review'))
     for p_id, p_data in sorted(state['players'].items()):
         formatted_name = format_player_name(p_id, p_data, state)
@@ -386,7 +386,6 @@ def display_results_phase(state, user_id):
             st.markdown(f"{num_str} {marks[i]} *{sent}*")
         st.markdown("---")
 
-    # Guesses Review (Transparency)
     st.subheader(t('guesses_review'))
     for uid, guess_dict in state['guesses'].items():
         is_viewer_guess = uid not in state['player_user_ids']
@@ -409,7 +408,7 @@ def display_results_phase(state, user_id):
                     true_v_name = VARNA_DETAILS[true_v_key][st.session_state.lang]['name']
                     
                     if target_guess is None:
-                        guessed_v_name = t('skipped_guess')
+                        guessed_v_name = t('skip_option')
                         mark = "⚪"
                     else:
                         guessed_v_name = VARNA_DETAILS[target_guess][st.session_state.lang]['name']
@@ -417,7 +416,6 @@ def display_results_phase(state, user_id):
                         
                     st.markdown(f"- **{t_name}**: {guessed_v_name} {mark} *{t('true_is', varna=true_v_name)}*")
 
-    # Round Scores
     st.subheader(t('round_scores'))
     if not state.get('last_round_scores'):
         st.warning(t('no_correct_guesses'))
@@ -427,7 +425,6 @@ def display_results_phase(state, user_id):
             trophy = " 🏆" if pts == MAX_POINTS else ""
             st.success(f"**{name}**: {pts_str} {t('points')}{trophy}")
 
-    # Total Leaderboard
     st.subheader(t('leaderboard'))
     if state.get('scores'):
         for name, score in sorted(state['scores'].items(), key=lambda x: x[1], reverse=True):
@@ -436,7 +433,6 @@ def display_results_phase(state, user_id):
 
     st.markdown("---")
     if st.button(t('go_to_main_menu'), type="primary", use_container_width=True):
-        # Wipe session completely and return to start
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.query_params.clear()
@@ -447,8 +443,8 @@ def display_chat(state, user_id, player_id):
     with st.expander(t('live_chat'), expanded=False):
         chat_box = st.container(height=250)
         for msg in state.get('chat', []):
-            # Safe text rendering to prevent injection
-            st.write(f"**{msg['sender']}**: {msg['text']}")
+            with chat_box.chat_message("user" if msg['user_id'] == user_id else "assistant"):
+                st.write(f"**{msg['sender']}**: {msg['text']}")
                 
         with st.form("chat_form", clear_on_submit=True):
             cols = st.columns([4, 1])
@@ -457,12 +453,7 @@ def display_chat(state, user_id, player_id):
                 if prompt:
                     p_data = state.get('players', {}).get(player_id)
                     sender_name = format_player_name(player_id, p_data, state) if p_data else t('viewer')
-                    state.setdefault('chat', []).append({
-                        "user_id": user_id, 
-                        "player_id": player_id,
-                        "sender": sender_name, 
-                        "text": prompt
-                    })
+                    state.setdefault('chat', []).append({"user_id": user_id, "sender": sender_name, "text": prompt})
                     save_game_state(state)
                     st.rerun()
 
@@ -541,7 +532,7 @@ def main():
     num_guessed = sum(1 for uid in state['player_user_ids'] if uid in state.get('guesses', {}))
     current_time = time.time()
     
-    # --- AUTO-ADVANCE & SCORING LOGIC (Calculates strictly ONCE per round) ---
+    # --- AUTO-ADVANCE & SCORING LOGIC ---
     if state['phase'] == 'joining' and num_players == 4:
         state['phase'] = 'writing'
         state['writing_start_time'] = current_time
@@ -569,7 +560,6 @@ def main():
                     state['guesses'][uid] = "TIMEOUT"
                     state.setdefault('disqualified', []).append(uid)
             
-            # SCORE CALCULATION - +4 (Correct), -2 (Incorrect), 0 (Pass)
             truth = state['true_varna_map']
             round_scores = {}
             for uid, guess_dict in state['guesses'].items():
@@ -578,7 +568,7 @@ def main():
                     for pid, guessed_varna in guess_dict.items():
                         if pid != state['player_user_ids'].get(uid):
                             if guessed_varna is None:
-                                pass # 0 points for pass
+                                pass # 0 points
                             elif truth.get(pid) == guessed_varna:
                                 pts += 4
                             else:
@@ -587,7 +577,7 @@ def main():
                 g_name = state['players'].get(state['player_user_ids'].get(uid, ""), {}).get('name')
                 if not g_name: g_name = f"{t('viewer')} ({uid[:4]})"
                 
-                if pts != 0: # Record both positive and negative scores
+                if pts != 0:
                     round_scores[g_name] = pts
                     state['scores'][g_name] = state['scores'].get(g_name, 0) + pts
 
@@ -600,6 +590,7 @@ def main():
     
     # --- DISPLAY PHASES ---
     if state['phase'] == 'joining':
+        display_how_to_play()
         if not is_viewer and (not player_id or player_id not in state['players']): 
             display_joining_phase(state, user_id)
         else: 
