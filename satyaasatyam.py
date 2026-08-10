@@ -207,17 +207,12 @@ def t(key, **kwargs):
     return text.format(**kwargs)
 
 def format_player_name(p_id, p_data, state):
-    """Formats player name with number and host crown: [1] Name 👑"""
+    """Formats player name perfectly based on language: १। Name 👑 or 1. Name 👑"""
     num = p_id.split('_')[1]
-    num_str = to_devanagari(num) if st.session_state.get('lang') == 'sa' else num
+    is_sa = st.session_state.get('lang') == 'sa'
+    num_str = f"{to_devanagari(num)}।" if is_sa else f"{num}."
     host_str = " 👑" if p_data.get('user_id') == state.get('host_user_id') else ""
-    return f"[{num_str}] {p_data['name']}{host_str}"
-
-def get_player_number_str(p_id):
-    """Gets just the localized number string for avatars (e.g. '१' or '1')"""
-    if not p_id: return "V"
-    num = p_id.split('_')[1]
-    return to_devanagari(num) if st.session_state.get('lang') == 'sa' else num
+    return f"{num_str} {p_data['name']}{host_str}"
 
 # --- 4. UI COMPONENTS ---
 def display_player_header(state, player_id):
@@ -395,8 +390,7 @@ def display_chat(state, user_id, player_id):
     with st.expander(t('live_chat'), expanded=False):
         chat_box = st.container(height=250)
         for msg in state.get('chat', []):
-            avatar_txt = get_player_number_str(msg.get('player_id'))
-            with chat_box.chat_message("user" if msg['user_id'] == user_id else "assistant", avatar=avatar_txt):
+            with chat_box.chat_message("user" if msg['user_id'] == user_id else "assistant"):
                 st.write(f"**{msg['sender']}**: {msg['text']}")
                 
         with st.form("chat_form", clear_on_submit=True):
@@ -406,12 +400,7 @@ def display_chat(state, user_id, player_id):
                 if prompt:
                     p_data = state.get('players', {}).get(player_id)
                     sender_name = format_player_name(player_id, p_data, state) if p_data else t('viewer')
-                    state.setdefault('chat', []).append({
-                        "user_id": user_id, 
-                        "player_id": player_id,
-                        "sender": sender_name, 
-                        "text": prompt
-                    })
+                    state.setdefault('chat', []).append({"user_id": user_id, "sender": sender_name, "text": prompt})
                     save_game_state(state)
                     st.rerun()
 
