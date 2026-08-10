@@ -44,16 +44,12 @@ TRANSLATIONS = {
         "error_name_taken": "इदं नाम पूर्वमेव स्वीकृतम्। अन्यत् चिनु।",
         "join_as": "इति प्रविश",
         "player": "क्रीडकः",
-        "you_joined_as": "त्वं {name} नाम्ना सम्मिलितोऽसि।",
         "waiting_for_players": "अन्येषाम् आगमनं प्रतीक्षस्व",
-        "you_are": "त्वमसि",
         "truth_1": "प्रथमं सत्यं वाक्यम्", "truth_2": "द्वितीयं सत्यं वाक्यम्", "truth_3": "तृतीयं सत्यं वाक्यम्",
         "false_1": "प्रथमम् असत्यं वाक्यम्", "false_2": "द्वितीयम् असत्यं वाक्यम्", "false_3": "तृतीयम् असत्यं वाक्यम्",
         "submit_sentences": "वाक्यानि समर्पय",
         "error_all_sentences": "कृपया त्रीणि वाक्यानि लिख।",
         "submission_success": "✅ तव वाक्यानि समर्पितानि। इतरेषां प्रतीक्षा कुरु।",
-        "writing_progress": "{count} चतुर्षु क्रीडकैः वाक्यानि समर्पितानि॥",
-        "guessing_progress": "{count} चतुर्षु क्रीडकैः अनुमानं समर्पितम्॥",
         "time_left": "⏳ अवशिष्टः समयः",
         "time_up": "समयः समाप्तः",
         "guessing_time": "🤔 अनुमानपर्व",
@@ -101,16 +97,12 @@ TRANSLATIONS = {
         "error_name_taken": "This name is already taken. Please choose another.",
         "join_as": "Join as",
         "player": "Player",
-        "you_joined_as": "You have joined as {name}.",
         "waiting_for_players": "Waiting for other players to join",
-        "you_are": "You are",
         "truth_1": "First True Sentence", "truth_2": "Second True Sentence", "truth_3": "Third True Sentence",
         "false_1": "First False Sentence", "false_2": "Second False Sentence", "false_3": "Third False Sentence",
         "submit_sentences": "Submit Sentences",
         "error_all_sentences": "Please write three sentences.",
         "submission_success": "✅ Your sentences are submitted. Waiting for others.",
-        "writing_progress": "{count} of 4 players have submitted sentences.",
-        "guessing_progress": "{count} of 4 players have submitted guesses.",
         "time_left": "⏳ Time left",
         "time_up": "Time Up",
         "guessing_time": "🤔 Guessing Time",
@@ -159,7 +151,7 @@ def get_initial_state(game_id, settings, host_user_id):
         "id": game_id, "phase": "joining", "settings": settings,
         "players": {}, "player_user_ids": {}, "host_user_id": host_user_id,
         "true_varna_map": {f"player_{i+1}": varna for i, varna in enumerate(shuffled_varnas)},
-        "guesses": {}, "scores": {}, "chat": []
+        "guesses": {}, "scores": {}, "chat": [], "disqualified": []
     }
 
 def load_game_state(game_id):
@@ -176,20 +168,17 @@ def save_game_state(state):
         json.dump(state, f, indent=2, ensure_ascii=False)
 
 def manage_session():
-    """Handles user identity and ensures survival upon page reload via URL parameters."""
-    # 1. Recover or create User ID
     url_uid = st.query_params.get("uid")
     if url_uid:
         user_id = url_uid
         st.session_state['user_id'] = user_id
     else:
         user_id = st.session_state.setdefault('user_id', str(uuid.uuid4()))
-        st.query_params["uid"] = user_id  # Save to URL instantly
+        st.query_params["uid"] = user_id 
         
     game_id = st.query_params.get("id")
     is_viewer = st.query_params.get("role") == "viewer"
     
-    # 2. Recover Player ID if they were already in the game
     state = load_game_state(game_id)
     if state and user_id in state['player_user_ids']:
         st.session_state['player_id'] = state['player_user_ids'][user_id]
@@ -200,12 +189,19 @@ def manage_session():
 def t(key, **kwargs):
     lang = st.session_state.get('lang', 'sa')
     text = TRANSLATIONS.get(lang, {}).get(key) or TRANSLATIONS.get('en', {}).get(key, key)
-    if lang == 'sa' and kwargs:
-        for k, v in kwargs.items():
-            if isinstance(v, (int, str)) and str(v).isdigit(): kwargs[k] = to_devanagari(v)
     return text.format(**kwargs)
 
 # --- 4. UI COMPONENTS ---
+def display_player_header(state, player_id):
+    if player_id and player_id in state.get('players', {}):
+        name = state['players'][player_id]['name']
+        varna = state['true_varna_map'].get(player_id)
+        if state['phase'] in ['writing', 'guessing'] and varna:
+            varna_name = VARNA_DETAILS[varna][st.session_state.lang]['name']
+            st.info(f"👤 **{name}** | 🎭 **{varna_name}**")
+        else:
+            st.info(f"👤 **{name}**")
+
 def display_joining_phase(state, user_id):
     player_slots = {f"player_{i+1}" for i in range(4)}
     available_slots = sorted(list(player_slots - set(state['players'].keys())))
@@ -213,7 +209,8 @@ def display_joining_phase(state, user_id):
     
     player_id_to_join = st.session_state.get('player_id') or available_slots[0]
     player_num = player_id_to_join.split('_')[1]
-    default_name = f"{t('player')} {t(key='player', count=player_num)}"
+    player_num_str = to_devanagari(player_num) if st.session_state.lang == 'sa' else player_num
+    default_name = f"{t('player')} {player_num_str}"
 
     player_name = st.text_input(t('enter_name_label'), placeholder=default_name)
     
@@ -237,7 +234,7 @@ def display_status_list(state, phase):
     for pid, pdata in sorted(state['players'].items()):
         if phase == 'writing':
             status = t('status_submitted') if pdata.get('submitted') else t('status_writing')
-        else: # guessing
+        else:
             status = t('status_submitted') if pdata['user_id'] in state.get('guesses', {}) else t('status_guessing')
         st.write(f"**{pdata['name']}**: {status}")
 
@@ -247,17 +244,7 @@ def display_writing_phase(state, player_id):
     
     st.warning(f"**{t('time_left')}: {remaining // 60}:{remaining % 60:02d}**")
 
-    # Auto-Submit on Timeout
-    if remaining == 0 and not state['players'][player_id].get('submitted'):
-        state['players'][player_id]['sentences'] = [t('time_up')] * 3
-        state['players'][player_id]['submitted'] = True
-        save_game_state(state)
-        st.rerun()
-
     my_varna = state['true_varna_map'][player_id]
-    varna_name = VARNA_DETAILS[my_varna][st.session_state.lang]['name']
-    
-    st.header(f"{t('you_are')} **{varna_name}**")
     
     with st.form("sentence_form"):
         prompts = SENTENCE_PROMPTS[my_varna]
@@ -283,24 +270,9 @@ def display_guessing_phase(state, user_id, player_id):
     players_to_guess = [pid for pid in state['players'] if pid != player_id]
     varna_keys_to_guess = [v for v in VARNA_KEYS if v != my_varna]
 
-    # Initialize temporary local state for dynamic dropdowns
     if f"guesses_{state['id']}" not in st.session_state:
         st.session_state[f"guesses_{state['id']}"] = {pid: None for pid in players_to_guess}
     temp_guesses = st.session_state[f"guesses_{state['id']}"]
-
-    # Auto-submit if timeout
-    if remaining == 0:
-        used = [v for v in temp_guesses.values() if v]
-        unused = [v for v in varna_keys_to_guess if v not in used]
-        for pid in players_to_guess:
-            if not temp_guesses.get(pid):
-                temp_guesses[pid] = unused.pop(0) if unused else varna_keys_to_guess[0]
-        
-        final_guesses = temp_guesses.copy()
-        if not is_viewer: final_guesses[player_id] = my_varna
-        state['guesses'][user_id] = final_guesses
-        save_game_state(state)
-        st.rerun()
 
     st.header(t('guessing_time'))
     st.info(t('guessing_instructions'))
@@ -313,20 +285,16 @@ def display_guessing_phase(state, user_id, player_id):
     st.subheader(t('your_guesses'))
     cols = st.columns(len(players_to_guess))
     
-    # Match the Following (Dynamic Dropdowns)
     for i, pid in enumerate(players_to_guess):
         with cols[i]:
             pname = state['players'][pid]['name']
             current_selection = temp_guesses.get(pid)
             
-            # Figure out which options are left
             used_by_others = [val for p, val in temp_guesses.items() if p != pid and val is not None]
             available_keys = [k for k in varna_keys_to_guess if k not in used_by_others]
             
-            # Convert to UI names
             options_names = [VARNA_DETAILS[k][st.session_state.lang]['name'] for k in available_keys]
             curr_val_name = VARNA_DETAILS[current_selection][st.session_state.lang]['name'] if current_selection else None
-            
             idx = options_names.index(curr_val_name) if curr_val_name in options_names else None
             
             selected_name = st.selectbox(f"**{pname}**", options_names, index=idx, key=f"guess_box_{pid}", placeholder="---")
@@ -347,11 +315,6 @@ def display_guessing_phase(state, user_id, player_id):
             save_game_state(state)
             st.rerun()
 
-    if st.button(t('reveal_results')):
-        state['phase'] = "results"
-        save_game_state(state)
-        st.rerun()
-
 def display_results_phase(state, user_id):
     st.header(t('results_are_in'))
     st.subheader(t('true_varnas'))
@@ -364,8 +327,11 @@ def display_results_phase(state, user_id):
 
     st.subheader(t('scoring'))
     correct_guessers = []
+    disqualified = state.get('disqualified', [])
+    
     for uid, guess in state['guesses'].items():
-        if guess == truth:
+        # Disqualified users get 0 points even if they guessed correctly
+        if guess == truth and uid not in disqualified:
             g_name = state['players'].get(state['player_user_ids'].get(uid, ""), {}).get('name')
             if not g_name: g_name = f"{t('viewer')} ({uid[:4]})"
             correct_guessers.append(g_name)
@@ -373,7 +339,10 @@ def display_results_phase(state, user_id):
     if not correct_guessers: st.warning(t('no_correct_guesses'))
     else:
         pts = POINTS_POOL // len(correct_guessers)
-        st.success(t('correct_guessers_info', count=len(correct_guessers), points=pts))
+        pts_str = to_devanagari(pts) if st.session_state.lang == 'sa' else pts
+        count_str = to_devanagari(len(correct_guessers)) if st.session_state.lang == 'sa' else len(correct_guessers)
+        
+        st.success(t('correct_guessers_info', count=count_str, points=pts_str))
         for name in correct_guessers:
             st.write(f"🎉 **{name}**")
             if t('viewer') not in name: state['scores'][name] = state['scores'].get(name, 0) + pts
@@ -383,7 +352,8 @@ def display_results_phase(state, user_id):
     st.subheader(t('leaderboard'))
     if state.get('scores'):
         for name, score in sorted(state['scores'].items(), key=lambda x: x[1], reverse=True):
-            st.markdown(f"**{name}** : `{t(key='points', count=score)} {t('points')}`")
+            score_str = to_devanagari(score) if st.session_state.lang == 'sa' else score
+            st.markdown(f"**{name}** : `{score_str} {t('points')}`")
 
     if state.get('host_user_id') == user_id:
         if st.button(t('start_new_round'), type="primary"):
@@ -404,7 +374,6 @@ def display_chat(state, user_id, player_id):
             st.write(f"**{msg['sender']}**: {msg['text']}")
             
     if prompt := st.chat_input(t('type_message')):
-        # Safely get the name, handles the case where host hasn't typed their name yet
         p_data = state.get('players', {}).get(player_id)
         sender_name = p_data['name'] if p_data else t('viewer')
         
@@ -421,9 +390,8 @@ def display_footer(state, user_id, player_id):
         st.write(f"**{t('viewer_link_info')}**")
         st.code(f"{BASE_URL}/?id={state['id']}&role=viewer")
 
-    # Controls (Quit / End)
     cols = st.columns([1, 1])
-    if player_id:
+    if player_id and player_id in state.get('players', {}):
         with cols[0]:
             if st.button("🚪 " + t('quit_game'), use_container_width=True):
                 if st.checkbox(t('confirm_quit_game'), key="quit"):
@@ -477,26 +445,53 @@ def main():
             st.query_params.clear()
             st.rerun()
         return
+
+    # Banner displayed globally for playing users
+    display_player_header(state, player_id)
         
     num_players = len(state['players'])
     num_submitted = sum(1 for p in state['players'].values() if p.get('submitted'))
     num_guessed = sum(1 for uid in state['player_user_ids'] if uid in state.get('guesses', {}))
 
-    # Auto-Advance Phases
+    # --- AUTO-ADVANCE & GLOBAL TIMEOUT LOGIC ---
+    current_time = time.time()
+    
     if state['phase'] == 'joining' and num_players == 4:
         state['phase'] = 'writing'
-        state['writing_start_time'] = time.time()
+        state['writing_start_time'] = current_time
         save_game_state(state)
-    elif state['phase'] == 'writing' and num_submitted == 4:
-        state['phase'] = 'guessing'
-        state['guessing_start_time'] = time.time()
-        save_game_state(state)
+        st.rerun()
+        
+    elif state['phase'] == 'writing':
+        elapsed = current_time - state.get('writing_start_time', current_time)
+        if num_submitted == 4 or elapsed >= WRITING_TIME_LIMIT:
+            for pid, pdata in state['players'].items():
+                if not pdata.get('submitted'):
+                    pdata['sentences'] = [t('time_up')] * 3
+                    pdata['submitted'] = True
+                    state.setdefault('disqualified', []).append(pdata['user_id'])
+            state['phase'] = 'guessing'
+            state['guessing_start_time'] = current_time
+            save_game_state(state)
+            st.rerun()
+            
+    elif state['phase'] == 'guessing':
+        elapsed = current_time - state.get('guessing_start_time', current_time)
+        if num_guessed == 4 or elapsed >= GUESSING_TIME_LIMIT:
+            for uid in state['player_user_ids']:
+                if uid not in state.setdefault('guesses', {}):
+                    state['guesses'][uid] = "TIMEOUT"
+                    state.setdefault('disqualified', []).append(uid)
+            state['phase'] = 'results'
+            save_game_state(state)
+            st.rerun()
     
     needs_refresh = False
     
-    # Display Phases
+    # --- DISPLAY PHASES ---
     if state['phase'] == 'joining':
-        if not is_viewer and not player_id: display_joining_phase(state, user_id)
+        if not is_viewer and (not player_id or player_id not in state['players']): 
+            display_joining_phase(state, user_id)
         else: 
             st.info(t('waiting_for_players'))
             needs_refresh = True
@@ -504,18 +499,16 @@ def main():
     elif state['phase'] == 'writing':
         if is_viewer or state['players'].get(player_id, {}).get('submitted'):
             st.success(t('submission_success'))
-            st.write(t('writing_progress', count=num_submitted))
             display_status_list(state, 'writing')
             needs_refresh = True
         else:
             display_writing_phase(state, player_id)
             display_status_list(state, 'writing')
-            needs_refresh = True
+            needs_refresh = True 
 
     elif state['phase'] == 'guessing':
         if user_id in state.get('guesses', {}) or is_viewer:
             st.success(t('guess_submitted'))
-            st.write(t('guessing_progress', count=num_guessed))
             display_status_list(state, 'guessing')
             needs_refresh = True
         else: 
