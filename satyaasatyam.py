@@ -11,12 +11,19 @@ BASE_URL = "https://satyaasatyam.streamlit.app"
 AUTO_REFRESH_SECONDS = 15
 WRITING_TIME_LIMIT = 360  # 6 minutes
 GUESSING_TIME_LIMIT = 120 # 2 minutes
-POINTS_PER_GUESS = 4
 MAX_POINTS = 12
 
 # --- 2. LANGUAGE & CONTENT ---
 def to_devanagari(num_str):
-    return "".join("०१२३४५६७८९"[int(d)] for d in str(num_str))
+    """Safely converts numbers to Devanagari, ignoring minus signs and other chars."""
+    s = str(num_str)
+    res = ""
+    for char in s:
+        if char.isdigit():
+            res += "०१२३४५६७८९"[int(char)]
+        else:
+            res += char
+    return res
 
 VARNA_DETAILS = {
     "Brahmin": {"sa": {"name": "ब्राह्मणः"}, "en": {"name": "Brahmin"}},
@@ -46,7 +53,7 @@ TRANSLATIONS = {
         "game_title": "सत्यासत्यम्",
         "welcome_intro": "सुस्वागतम्। इयं चतुर्णां क्रीडकानां सत्यासत्यपरीक्षा क्रीडा॥ अत्र एको ब्राह्मणः सर्वसत्यवादी क्षत्रिय एकानृतवादी वैश्य एकसत्यवादी शूद्रश्च सर्वानृतवादी भविष्यति। सर्वेषां वर्णानां सम्यगनुमानमेव तव लक्ष्यम्॥",
         "how_to_play": "क्रीडाविधिः",
-        "how_to_play_text": "१ चत्वारः क्रीडकाः स्वनाम दत्त्वा प्रविशन्ति।\n\n२ प्रत्येकं क्रीडकः एकं वर्णं प्राप्नोति।\n\n३ स्ववर्णस्य नियमानुसारं स्वविषये त्रीणि वाक्यानि लिख। ब्राह्मणः त्रयः सत्यानि। क्षत्रियः द्वे सत्ये एकम् असत्यम्। वैश्यः एकं सत्यं द्वे असत्ये। शूद्रः त्रयः असत्यानि।\n\n४ अन्येषां वाक्यानि पठित्वा तेषां यथार्थवर्णं चिनु।\n\n५ सम्यगनुमानात् प्रतिवर्णं ४ अङ्काः प्राप्यन्ते। पूर्णाङ्काः प्राप्ते 🏆 प्राप्यते।",
+        "how_to_play_text": "१ चत्वारः क्रीडकाः स्वनाम दत्त्वा प्रविशन्ति।\n\n२ प्रत्येकं क्रीडकः एकं वर्णं प्राप्नोति।\n\n३ स्ववर्णस्य नियमानुसारं स्वविषये त्रीणि वाक्यानि लिख। ब्राह्मणः त्रयः सत्यानि। क्षत्रियः द्वे सत्ये एकम् असत्यम्। वैश्यः एकं सत्यं द्वे असत्ये। शूद्रः त्रयः असत्यानि।\n\n४ अन्येषां वाक्यानि पठित्वा तेषां यथार्थवर्णं चिनु।\n\n५ सम्यगनुमानात् +४ अङ्काः प्राप्यन्ते। अशुद्धानुमानात् -२ अङ्काः न्यूनीभवन्ति। वर्णः न चितः चेत् ० अङ्काः। पूर्णाङ्काः (१२) प्राप्ते 🏆 प्राप्यते।",
         "create_game_button": "✨ नवीनं क्रीडासत्रं रचया",
         "require_names": "नामकरणम् अनिवार्यम्",
         "enter_name_label": "तव नामाङ्कनं कुरु",
@@ -64,11 +71,11 @@ TRANSLATIONS = {
         "time_up": "समयः समाप्तः",
         "guessing_time": "🤔 अनुमानपर्व",
         "guessing_instructions": "प्रत्येकस्य क्रीडकस्य यथार्थं वर्णं योजय।",
-        "clear_hint": "सङ्केतः - चयनं मार्जयितुं मञ्जूषायां 'x' नुदतु।",
+        "clear_hint": "सङ्केतः - चयनं मार्जयितुं मञ्जूषायां 'x' नुदतु। (अनुमानं न कर्तुम् इच्छसि चेत् रिक्तं त्यजतु)",
         "player_sentences": "वाक्यानि",
         "your_guesses": "तव अनुमानानि",
         "submit_guess": "अनुमानं निश्चिनु",
-        "error_all_guesses": "कृपया सर्वेभ्यः वर्णं चिनु।",
+        "error_unique_guesses": "एकमेव वर्णं द्वयोः क्रीडकयोः दातुं न शक्यते। भिन्नवर्णान् चिनु।",
         "guess_submitted": "✅ तवानुमानं समर्पितम्। परिणामान् प्रतीक्षस्व।",
         "status_submitted": "✅ समर्पितम्",
         "status_writing": "⏳ लिखति",
@@ -79,12 +86,12 @@ TRANSLATIONS = {
         "sentences_review": "वाक्यानां समीक्षा",
         "guesses_review": "अनुमानानां समीक्षा",
         "timeout_guess": "समयसमाप्तेः कारणात् अनुमानं न कृतम्।",
+        "skipped_guess": "न चितम्",
         "true_is": "(यथार्थम् - {varna})",
         "scoring": "🏆 अङ्कगणना",
         "round_scores": "अस्मिन् चक्रे प्राप्ताङ्काः",
         "leaderboard": "अङ्कतालिका",
         "points": "अङ्काः",
-        "start_new_round": "🔄 नवीनं चक्रमारभस्व",
         "game_links_expander": "🔗 क्रीडासूत्रं दर्शय",
         "player_link_info": "क्रीडकेभ्यः सूत्रम्",
         "viewer_link_info": "दर्शकेभ्यः सूत्रम्",
@@ -106,7 +113,7 @@ TRANSLATIONS = {
         "game_title": "Satyasatyam",
         "welcome_intro": "Welcome. This is a 4-player game of truth and untruth. One player will be the all-truthful Brahmin, one the 1-lie Kshatriya, one the 1-truth Vaishya, and one the all-lie Shudra. Guessing everyone's identity is your goal.",
         "how_to_play": "How to Play",
-        "how_to_play_text": "1. Four players join the game by entering their names.\n\n2. Each player is secretly assigned a Varna.\n\n3. Write 3 sentences about yourself based on your rule. (Brahmin = 3 Truths. Kshatriya = 2 Truths, 1 Lie. Vaishya = 1 Truth, 2 Lies. Shudra = 3 Lies.)\n\n4. Read others' sentences and guess their true Varna.\n\n5. Get 4 points for each correct guess. Score a perfect 12 to earn a 🏆!",
+        "how_to_play_text": "1. Four players join the game by entering their names.\n\n2. Each player is secretly assigned a Varna.\n\n3. Write 3 sentences about yourself based on your rule. (Brahmin = 3 Truths. Kshatriya = 2 Truths, 1 Lie. Vaishya = 1 Truth, 2 Lies. Shudra = 3 Lies.)\n\n4. Read others' sentences and guess their true Varna.\n\n5. Get +4 points for a correct guess, and -2 points for a wrong guess. Leave blank to pass (0 points). Score a perfect 12 to earn a 🏆!",
         "create_game_button": "✨ Create a New Game Session",
         "require_names": "Require names",
         "enter_name_label": "Enter your name",
@@ -124,11 +131,11 @@ TRANSLATIONS = {
         "time_up": "Time Up",
         "guessing_time": "🤔 Guessing Time",
         "guessing_instructions": "Match each player to their correct Varna.",
-        "clear_hint": "Tip: Click the 'x' in the box to clear a selection.",
+        "clear_hint": "Tip: Click the 'x' in the box to clear a selection. (Leave blank to pass/skip a guess).",
         "player_sentences": "Sentences",
         "your_guesses": "Your Guesses",
         "submit_guess": "Confirm Guess",
-        "error_all_guesses": "Please assign a Varna to everyone.",
+        "error_unique_guesses": "You cannot assign the same Varna to multiple players. Select unique Varnas.",
         "guess_submitted": "✅ Your guess is submitted! Waiting for the results.",
         "status_submitted": "✅ Submitted",
         "status_writing": "⏳ Writing",
@@ -139,12 +146,12 @@ TRANSLATIONS = {
         "sentences_review": "Sentences Review",
         "guesses_review": "Guesses Review",
         "timeout_guess": "Did not guess (Timeout)",
+        "skipped_guess": "Skipped",
         "true_is": "(True: {varna})",
         "scoring": "🏆 Scoring",
         "round_scores": "Scores This Round",
         "leaderboard": "Leaderboard",
         "points": "points",
-        "start_new_round": "🔄 Start a New Round",
         "game_links_expander": "🔗 Show Game Links",
         "player_link_info": "Player Link",
         "viewer_link_info": "Viewer Link",
@@ -170,7 +177,7 @@ def get_game_filepath(game_id):
 def get_initial_state(game_id, settings, host_user_id):
     shuffled_varnas = random.sample(VARNA_KEYS, len(VARNA_KEYS))
     return {
-        "id": game_id, "round": 1, "phase": "joining", "settings": settings,
+        "id": game_id, "phase": "joining", "settings": settings,
         "players": {}, "player_user_ids": {}, "host_user_id": host_user_id,
         "true_varna_map": {f"player_{i+1}": varna for i, varna in enumerate(shuffled_varnas)},
         "guesses": {}, "scores": {}, "last_round_scores": {}, "chat": [], "disqualified": []
@@ -309,7 +316,7 @@ def display_guessing_phase(state, user_id, player_id):
     varna_keys_to_guess = [v for v in VARNA_KEYS if v != my_varna]
 
     # Session tracker for dropdowns
-    guess_key = f"guesses_{state['id']}_round_{state.get('round', 1)}"
+    guess_key = f"guesses_{state['id']}"
     if guess_key not in st.session_state:
         st.session_state[guess_key] = {pid: None for pid in players_to_guess}
     temp_guesses = st.session_state[guess_key]
@@ -328,14 +335,12 @@ def display_guessing_phase(state, user_id, player_id):
     st.subheader(t('your_guesses'))
     cols = st.columns(len(players_to_guess))
     
-    # Strict Unique Matching Logic
     for i, pid in enumerate(players_to_guess):
         with cols[i]:
             p_data = state['players'][pid]
             formatted_name = format_player_name(pid, p_data, state)
             current_selection = temp_guesses.get(pid)
             
-            # Filter out what others have already picked
             used_by_others = [val for p, val in temp_guesses.items() if p != pid and val is not None]
             available_keys = [k for k in varna_keys_to_guess if k not in used_by_others]
             
@@ -352,8 +357,10 @@ def display_guessing_phase(state, user_id, player_id):
                 temp_guesses[pid] = None
 
     if st.button(t('submit_guess'), type="primary"):
-        if None in temp_guesses.values():
-            st.error(t('error_all_guesses'))
+        # We allow None values to pass. But we must check for duplicates among the non-None values.
+        made_guesses = [v for v in temp_guesses.values() if v is not None]
+        if len(set(made_guesses)) < len(made_guesses):
+            st.error(t('error_unique_guesses'))
         else:
             final_guesses = temp_guesses.copy()
             if not is_viewer: final_guesses[player_id] = my_varna
@@ -398,11 +405,16 @@ def display_results_phase(state, user_id):
                         continue
                     
                     t_name = format_player_name(target_pid, state['players'][target_pid], state)
-                    guessed_v_name = VARNA_DETAILS[target_guess][st.session_state.lang]['name']
                     true_v_key = state['true_varna_map'][target_pid]
                     true_v_name = VARNA_DETAILS[true_v_key][st.session_state.lang]['name']
                     
-                    mark = "✅" if target_guess == true_v_key else "❌"
+                    if target_guess is None:
+                        guessed_v_name = t('skipped_guess')
+                        mark = "⚪"
+                    else:
+                        guessed_v_name = VARNA_DETAILS[target_guess][st.session_state.lang]['name']
+                        mark = "✅" if target_guess == true_v_key else "❌"
+                        
                     st.markdown(f"- **{t_name}**: {guessed_v_name} {mark} *{t('true_is', varna=true_v_name)}*")
 
     # Round Scores
@@ -422,23 +434,21 @@ def display_results_phase(state, user_id):
             score_str = to_devanagari(score) if st.session_state.lang == 'sa' else score
             st.markdown(f"**{name}** : `{score_str} {t('points')}`")
 
-    if state.get('host_user_id') == user_id:
-        if st.button(t('start_new_round'), type="primary"):
-            new_state = get_initial_state(state['id'], state['settings'], user_id)
-            new_state['round'] = state.get('round', 1) + 1
-            new_state['players'] = {pid: {"name": p["name"], "user_id": p["user_id"]} for pid, p in state['players'].items()}
-            new_state['player_user_ids'] = state['player_user_ids']
-            new_state['scores'] = state.get('scores', {})
-            save_game_state(new_state)
-            st.rerun()
+    st.markdown("---")
+    if st.button(t('go_to_main_menu'), type="primary", use_container_width=True):
+        # Wipe session completely and return to start
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.query_params.clear()
+        st.rerun()
 
 def display_chat(state, user_id, player_id):
     st.markdown("---")
     with st.expander(t('live_chat'), expanded=False):
         chat_box = st.container(height=250)
         for msg in state.get('chat', []):
-            with chat_box.chat_message("user" if msg['user_id'] == user_id else "assistant"):
-                st.write(f"**{msg['sender']}**: {msg['text']}")
+            # Safe text rendering to prevent injection
+            st.write(f"**{msg['sender']}**: {msg['text']}")
                 
         with st.form("chat_form", clear_on_submit=True):
             cols = st.columns([4, 1])
@@ -531,7 +541,7 @@ def main():
     num_guessed = sum(1 for uid in state['player_user_ids'] if uid in state.get('guesses', {}))
     current_time = time.time()
     
-    # --- AUTO-ADVANCE & SCORING LOGIC ---
+    # --- AUTO-ADVANCE & SCORING LOGIC (Calculates strictly ONCE per round) ---
     if state['phase'] == 'joining' and num_players == 4:
         state['phase'] = 'writing'
         state['writing_start_time'] = current_time
@@ -559,20 +569,25 @@ def main():
                     state['guesses'][uid] = "TIMEOUT"
                     state.setdefault('disqualified', []).append(uid)
             
-            # SCORE CALCULATION - HAPPENS ONCE
+            # SCORE CALCULATION - +4 (Correct), -2 (Incorrect), 0 (Pass)
             truth = state['true_varna_map']
             round_scores = {}
             for uid, guess_dict in state['guesses'].items():
                 pts = 0
                 if uid not in state.get('disqualified', []) and isinstance(guess_dict, dict):
                     for pid, guessed_varna in guess_dict.items():
-                        if truth.get(pid) == guessed_varna and pid != state['player_user_ids'].get(uid):
-                            pts += POINTS_PER_GUESS
+                        if pid != state['player_user_ids'].get(uid):
+                            if guessed_varna is None:
+                                pass # 0 points for pass
+                            elif truth.get(pid) == guessed_varna:
+                                pts += 4
+                            else:
+                                pts -= 2
                             
                 g_name = state['players'].get(state['player_user_ids'].get(uid, ""), {}).get('name')
                 if not g_name: g_name = f"{t('viewer')} ({uid[:4]})"
                 
-                if pts > 0:
+                if pts != 0: # Record both positive and negative scores
                     round_scores[g_name] = pts
                     state['scores'][g_name] = state['scores'].get(g_name, 0) + pts
 
@@ -585,7 +600,6 @@ def main():
     
     # --- DISPLAY PHASES ---
     if state['phase'] == 'joining':
-        display_how_to_play()
         if not is_viewer and (not player_id or player_id not in state['players']): 
             display_joining_phase(state, user_id)
         else: 
@@ -614,7 +628,6 @@ def main():
         
     elif state['phase'] == 'results':
         display_results_phase(state, user_id)
-        needs_refresh = True # Auto-refresh so players join new round automatically
         
     display_chat(state, user_id, player_id)
     display_footer(state, user_id, player_id)
