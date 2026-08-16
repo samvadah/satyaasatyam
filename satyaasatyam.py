@@ -71,7 +71,7 @@ TRANSLATIONS = {
         "time_up": "समयः समाप्तः",
         "guessing_time": "🤔 अनुमानपर्व",
         "guessing_instructions": "प्रत्येकस्य क्रीडकस्य यथार्थं वर्णं योजय।",
-        "clear_hint": "सङ्केतः। अनुमानं न कर्तुम् इच्छसि चेत् '--- न चितम् ---' इति चिनु। ऋणात्मकाङ्केभ्यो रक्षणाय।",
+        "clear_hint": "--- न चितम् --- इति चिनु। ऋणात्मकाङ्केभ्यो रक्षणाय।",
         "player_sentences": "वाक्यानि",
         "your_guesses": "तव अनुमानानि",
         "submit_guess": "अनुमानं निश्चिनु",
@@ -90,6 +90,7 @@ TRANSLATIONS = {
         "true_is": "यथार्थम् {varna}।",
         "scoring": "🏆 अङ्कगणना",
         "round_scores": "अस्मिन् चक्रे प्राप्ताङ्काः",
+        "leaderboard": "अङ्कतालिका",
         "points": "अङ्काः",
         "game_links_expander": "🔗 क्रीडासूत्रं दर्शय",
         "player_link_info": "क्रीडकेभ्यः सूत्रम्",
@@ -149,6 +150,7 @@ TRANSLATIONS = {
         "true_is": "(True: {varna})",
         "scoring": "🏆 Scoring",
         "round_scores": "Scores This Round",
+        "leaderboard": "Leaderboard",
         "points": "points",
         "game_links_expander": "🔗 Show Game Links",
         "player_link_info": "Player Link",
@@ -224,6 +226,19 @@ def format_player_name(p_id, p_data, state):
     num_str = f"{to_devanagari(num)}।" if is_sa else f"{num}."
     host_str = " 👑" if p_data.get('user_id') == state.get('host_user_id') else ""
     return f"{num_str} {p_data['name']}{host_str}"
+
+def get_player_number_str(p_id):
+    if not p_id: return "V"
+    num = p_id.split('_')[1]
+    return to_devanagari(num) if st.session_state.get('lang') == 'sa' else num
+
+def get_formatted_timer(remaining_seconds):
+    """Formats the countdown timer safely without English brackets."""
+    mins, secs = remaining_seconds // 60, remaining_seconds % 60
+    if st.session_state.lang == 'sa':
+        return f"॥{to_devanagari(mins)}।{to_devanagari(f'{secs:02d}')}॥"
+    else:
+        return f"{mins}:{secs:02d}"
 
 # --- 4. UI COMPONENTS ---
 def display_how_to_play():
@@ -375,7 +390,8 @@ def display_results_phase(state, user_id):
     for uid, guess_dict in state['guesses'].items():
         is_viewer_guess = uid not in state['player_user_ids']
         if is_viewer_guess:
-            g_name = f"{t('viewer')} ({uid[:4]})"
+            uid_str = to_devanagari(uid[:4]) if st.session_state.lang == 'sa' else uid[:4]
+            g_name = f"{t('viewer')} {uid_str}"
         else:
             g_pid = state['player_user_ids'][uid]
             g_name = format_player_name(g_pid, state['players'][g_pid], state)
@@ -399,7 +415,7 @@ def display_results_phase(state, user_id):
                         guessed_v_name = VARNA_DETAILS[target_guess][st.session_state.lang]['name']
                         mark = "✅" if target_guess == true_v_key else "❌"
                         
-                    st.markdown(f"- **{t_name}**: {guessed_v_name} {mark} *{t('true_is', varna=true_v_name)}*")
+                    st.markdown(f"- **{t_name}**: {guessed_v_name} {mark} {t('true_is', varna=true_v_name)}")
 
     st.subheader(t('round_scores'))
     if not state.get('last_round_scores'):
@@ -409,6 +425,12 @@ def display_results_phase(state, user_id):
             pts_str = to_devanagari(pts) if st.session_state.lang == 'sa' else pts
             trophy = " 🏆" if pts == MAX_POINTS else ""
             st.success(f"**{name}**: {pts_str} {t('points')}{trophy}")
+
+    st.subheader(t('leaderboard'))
+    if state.get('scores'):
+        for name, score in sorted(state['scores'].items(), key=lambda x: x[1], reverse=True):
+            score_str = to_devanagari(score) if st.session_state.lang == 'sa' else score
+            st.markdown(f"**{name}** : `{score_str} {t('points')}`")
 
     st.markdown("---")
     if st.button(t('go_to_main_menu'), type="primary", use_container_width=True):
@@ -472,14 +494,6 @@ def display_footer(state, user_id, player_id):
                     state['phase'] = 'ended_by_host'
                     save_game_state(state)
                     st.rerun()
-
-def get_formatted_timer(remaining_seconds):
-    """Formats the countdown timer appropriately for the language."""
-    mins, secs = remaining_seconds // 60, remaining_seconds % 60
-    if st.session_state.lang == 'sa':
-        return f"॥{to_devanagari(mins)}।{to_devanagari(f'{secs:02d}')}॥"
-    else:
-        return f"{mins}:{secs:02d}"
 
 # --- 5. MAIN APPLICATION ---
 def main():
@@ -564,10 +578,12 @@ def main():
                             elif truth.get(pid) == guessed_varna:
                                 pts += 4
                             else:
-                                pts -= 1  # -1 PENALTY
+                                pts -= 1  # -1 Penalty
                             
                 g_name = state['players'].get(state['player_user_ids'].get(uid, ""), {}).get('name')
-                if not g_name: g_name = f"{t('viewer')} ({uid[:4]})"
+                if not g_name:
+                    uid_str = to_devanagari(uid[:4]) if st.session_state.lang == 'sa' else uid[:4]
+                    g_name = f"{t('viewer')} {uid_str}"
                 
                 if pts != 0:
                     round_scores[g_name] = pts
@@ -592,7 +608,7 @@ def main():
                 st.info(f"{t('waiting_for_players')} {num_str}")
             else:
                 num_str = f"{num_j}/4"
-                st.info(f"{t('waiting_for_players')} ({num_str})")
+                st.info(f"{t('waiting_for_players')} {num_str}")
             
             st.markdown("---")
             for pid, pdata in sorted(state['players'].items()):
