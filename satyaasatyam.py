@@ -90,7 +90,6 @@ TRANSLATIONS = {
         "true_is": "यथार्थम् {varna}।",
         "scoring": "🏆 अङ्कगणना",
         "round_scores": "अस्मिन् चक्रे प्राप्ताङ्काः",
-        "leaderboard": "अङ्कतालिका",
         "points": "अङ्काः",
         "game_links_expander": "🔗 क्रीडासूत्रं दर्शय",
         "player_link_info": "क्रीडकेभ्यः सूत्रम्",
@@ -226,11 +225,6 @@ def format_player_name(p_id, p_data, state):
     host_str = " 👑" if p_data.get('user_id') == state.get('host_user_id') else ""
     return f"{num_str} {p_data['name']}{host_str}"
 
-def get_player_number_str(p_id):
-    if not p_id: return "V"
-    num = p_id.split('_')[1]
-    return to_devanagari(num) if st.session_state.get('lang') == 'sa' else num
-
 # --- 4. UI COMPONENTS ---
 def display_how_to_play():
     with st.expander(t('how_to_play')):
@@ -286,6 +280,7 @@ def display_status_list(state, phase):
 
 def display_writing_phase(state, player_id):
     my_varna = state['true_varna_map'][player_id]
+    
     with st.form("sentence_form"):
         prompts = SENTENCE_PROMPTS[my_varna]
         sentences = [st.text_area(t(p), height=80) for p in prompts]
@@ -415,12 +410,6 @@ def display_results_phase(state, user_id):
             trophy = " 🏆" if pts == MAX_POINTS else ""
             st.success(f"**{name}**: {pts_str} {t('points')}{trophy}")
 
-    st.subheader(t('leaderboard'))
-    if state.get('scores'):
-        for name, score in sorted(state['scores'].items(), key=lambda x: x[1], reverse=True):
-            score_str = to_devanagari(score) if st.session_state.lang == 'sa' else score
-            st.markdown(f"**{name}** : `{score_str} {t('points')}`")
-
     st.markdown("---")
     if st.button(t('go_to_main_menu'), type="primary", use_container_width=True):
         for key in list(st.session_state.keys()):
@@ -483,6 +472,14 @@ def display_footer(state, user_id, player_id):
                     state['phase'] = 'ended_by_host'
                     save_game_state(state)
                     st.rerun()
+
+def get_formatted_timer(remaining_seconds):
+    """Formats the countdown timer appropriately for the language."""
+    mins, secs = remaining_seconds // 60, remaining_seconds % 60
+    if st.session_state.lang == 'sa':
+        return f"॥{to_devanagari(mins)}।{to_devanagari(f'{secs:02d}')}॥"
+    else:
+        return f"{mins}:{secs:02d}"
 
 # --- 5. MAIN APPLICATION ---
 def main():
@@ -606,13 +603,7 @@ def main():
     elif state['phase'] == 'writing':
         elapsed = time.time() - state.get('writing_start_time', time.time())
         remaining = max(0, WRITING_TIME_LIMIT - int(elapsed))
-        mins, secs = remaining // 60, remaining % 60
-        
-        if st.session_state.lang == 'sa':
-            timer_str = f"॥{to_devanagari(mins)}।{to_devanagari(f'{secs:02d}')}॥"
-        else:
-            timer_str = f"{mins}:{secs:02d}"
-            
+        timer_str = get_formatted_timer(remaining)
         st.warning(f"**{t('time_left')} {timer_str}**")
 
         if is_viewer or state['players'].get(player_id, {}).get('submitted'):
@@ -627,13 +618,7 @@ def main():
     elif state['phase'] == 'guessing':
         elapsed = time.time() - state.get('guessing_start_time', time.time())
         remaining = max(0, GUESSING_TIME_LIMIT - int(elapsed))
-        mins, secs = remaining // 60, remaining % 60
-        
-        if st.session_state.lang == 'sa':
-            timer_str = f"॥{to_devanagari(mins)}।{to_devanagari(f'{secs:02d}')}॥"
-        else:
-            timer_str = f"{mins}:{secs:02d}"
-            
+        timer_str = get_formatted_timer(remaining)
         st.warning(f"**{t('time_left')} {timer_str}**")
 
         if user_id in state.get('guesses', {}) or is_viewer:
