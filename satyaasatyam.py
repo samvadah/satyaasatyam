@@ -71,7 +71,7 @@ TRANSLATIONS = {
         "time_up": "समयः समाप्तः",
         "guessing_time": "🤔 अनुमानपर्व",
         "guessing_instructions": "प्रत्येकस्य क्रीडकस्य यथार्थं वर्णं योजय।",
-        "clear_hint": "सङ्केतः। अनुमानं न कर्तुम् इच्छसि चेत् '--- न चितम् ---' चिनु। ऋणात्मक-अङ्केभ्यः रक्षणाय।",
+        "clear_hint": "सङ्केतः। अनुमानं न कर्तुम् इच्छसि चेत् '--- न चितम् ---' इति चिनु। ऋणात्मकाङ्केभ्यः रक्षणाय।",
         "player_sentences": "वाक्यानि",
         "your_guesses": "तव अनुमानानि",
         "submit_guess": "अनुमानं निश्चिनु",
@@ -90,6 +90,7 @@ TRANSLATIONS = {
         "true_is": "यथार्थम् {varna}।",
         "scoring": "🏆 अङ्कगणना",
         "round_scores": "अस्मिन् चक्रे प्राप्ताङ्काः",
+        "leaderboard": "अङ्कतालिका",
         "points": "अङ्काः",
         "game_links_expander": "🔗 क्रीडासूत्रं दर्शय",
         "player_link_info": "क्रीडकेभ्यः सूत्रम्",
@@ -98,8 +99,8 @@ TRANSLATIONS = {
         "go_to_main_menu": "मुख्यपृष्ठं गच्छ",
         "end_game": "क्रीडां समापय",
         "quit_game": "क्रीडां त्यज",
-        "confirm_quit_game": "निश्चयेन त्यक्तुमिच्छसि।",
-        "confirm_end_game": "निश्चयेन। एतत् सर्वेषां कृते सत्रं समापयिष्यति।",
+        "confirm_quit_game": "अपि निश्चयेन त्यक्तुमिच्छसि।",
+        "confirm_end_game": "अपि निश्चयेन सर्वेषां कृते सत्रं समापयितुम् इच्छसि।",
         "yes": "आम्",
         "game_ended_by_host": "आतिथेयेन क्रीडा समाप्ता॥",
         "viewer": "दर्शकः",
@@ -284,6 +285,10 @@ def display_status_list(state, phase):
         st.write(f"**{formatted_name}**: {status}")
 
 def display_writing_phase(state, player_id):
+    elapsed = time.time() - state.get('writing_start_time', time.time())
+    remaining = max(0, WRITING_TIME_LIMIT - int(elapsed))
+    
+    st.warning(f"**{t('time_left')}: {remaining // 60}:{remaining % 60:02d}**")
     my_varna = state['true_varna_map'][player_id]
     
     with st.form("sentence_form"):
@@ -299,13 +304,17 @@ def display_writing_phase(state, player_id):
             else: st.error(t('error_all_sentences'))
 
 def display_guessing_phase(state, user_id, player_id):
+    elapsed = time.time() - state.get('guessing_start_time', time.time())
+    remaining = max(0, GUESSING_TIME_LIMIT - int(elapsed))
+    
+    st.warning(f"**{t('time_left')}: {remaining // 60}:{remaining % 60:02d}**")
+
     is_viewer = not player_id
     my_varna = state['true_varna_map'].get(player_id) if not is_viewer else None
     players_to_guess = [pid for pid in state['players'] if pid != player_id]
     varna_keys_to_guess = [v for v in VARNA_KEYS if v != my_varna]
 
-    # Session tracker for dropdowns
-    guess_key = f"guesses_{state['id']}"
+    guess_key = f"guesses_{state['id']}_round_{state.get('round', 1)}"
     if guess_key not in st.session_state:
         st.session_state[guess_key] = {pid: None for pid in players_to_guess}
     temp_guesses = st.session_state[guess_key]
@@ -550,7 +559,6 @@ def main():
                     state['guesses'][uid] = "TIMEOUT"
                     state.setdefault('disqualified', []).append(uid)
             
-            # SCORE CALCULATION (-1 Penalty applied here)
             truth = state['true_varna_map']
             round_scores = {}
             for uid, guess_dict in state['guesses'].items():
@@ -563,7 +571,7 @@ def main():
                             elif truth.get(pid) == guessed_varna:
                                 pts += 4
                             else:
-                                pts -= 1  # <--- UPDATED PENALTY
+                                pts -= 1  # PENALTY IS EXACTLY -1 HERE
                             
                 g_name = state['players'].get(state['player_user_ids'].get(uid, ""), {}).get('name')
                 if not g_name: g_name = f"{t('viewer')} ({uid[:4]})"
@@ -585,11 +593,17 @@ def main():
         if not is_viewer and (not player_id or player_id not in state['players']): 
             display_joining_phase(state, user_id)
         else: 
-            st.info(t('waiting_for_players'))
+            num_j = len(state['players'])
+            num_str = f"{to_devanagari(num_j)}/{to_devanagari(4)}" if st.session_state.lang == 'sa' else f"{num_j}/4"
+            st.info(f"{t('waiting_for_players')} ({num_str})")
+            
+            st.markdown("---")
+            for pid, pdata in sorted(state['players'].items()):
+                formatted_name = format_player_name(pid, pdata, state)
+                st.write(f"**{formatted_name}**")
             needs_refresh = True
             
     elif state['phase'] == 'writing':
-        # ONLY display the timer in the writing phase
         elapsed = time.time() - state.get('writing_start_time', time.time())
         remaining = max(0, WRITING_TIME_LIMIT - int(elapsed))
         st.warning(f"**{t('time_left')}: {remaining // 60}:{remaining % 60:02d}**")
@@ -604,7 +618,6 @@ def main():
             needs_refresh = True 
 
     elif state['phase'] == 'guessing':
-        # ONLY display the timer in the guessing phase
         elapsed = time.time() - state.get('guessing_start_time', time.time())
         remaining = max(0, GUESSING_TIME_LIMIT - int(elapsed))
         st.warning(f"**{t('time_left')}: {remaining // 60}:{remaining % 60:02d}**")
